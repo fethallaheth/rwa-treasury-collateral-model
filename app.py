@@ -989,7 +989,11 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
         index="Scenario", columns="Adoption Label", values="Plot Value"
     ).loc[list(STRESS_SCENARIOS.keys())]
     pivot = pivot[[format_percent(value) for value in ADOPTION_SCENARIOS.values()]]
-    text = pivot.applymap(lambda value: f"{value:.2f}")
+    text = (
+        pivot.map(lambda value: f"{value:.2f}")
+        if hasattr(pivot, "map")
+        else pivot.applymap(lambda value: f"{value:.2f}")
+    )
     colorscale = "RdBu_r" if diverging else "Blues"
 
     heatmap_options = {
@@ -1294,7 +1298,8 @@ def style_matrix(pivot, formatter, favorable="high"):
         alpha = 0.10 + intensity * 0.24
         return f"background-color: rgba({fills[color]}, {alpha:.2f});"
 
-    return pivot.style.format(formatter).applymap(cell_style)
+    styler = pivot.style.format(formatter)
+    return styler.map(cell_style) if hasattr(styler, "map") else styler.applymap(cell_style)
 
 
 def render_adoption_analysis(params):
