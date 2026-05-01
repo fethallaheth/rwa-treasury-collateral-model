@@ -934,12 +934,33 @@ def apply_chart_style(fig, title, x_title=None, y_title=None, height=430):
         margin=dict(l=30, r=30, t=72, b=40),
         font=dict(color=TEXT, size=13),
         title_font=dict(size=18, color=TEXT),
+        title_x=0.02,
         legend_title_text="",
+        legend=dict(
+            font=dict(color=TEXT, size=12),
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor=GRID,
+            borderwidth=1,
+        ),
         paper_bgcolor="#ffffff",
         plot_bgcolor="#ffffff",
     )
-    fig.update_xaxes(title=x_title, gridcolor=GRID, zerolinecolor=GRID)
-    fig.update_yaxes(title=y_title, gridcolor=GRID, zerolinecolor=GRID)
+    fig.update_xaxes(
+        title=x_title,
+        title_font=dict(color=MUTED, size=13),
+        tickfont=dict(color=TEXT, size=12),
+        gridcolor="#e5e9f0",
+        linecolor=GRID,
+        zerolinecolor=GRID,
+    )
+    fig.update_yaxes(
+        title=y_title,
+        title_font=dict(color=MUTED, size=13),
+        tickfont=dict(color=TEXT, size=12),
+        gridcolor="#e5e9f0",
+        linecolor=GRID,
+        zerolinecolor=GRID,
+    )
     return fig
 
 
@@ -1082,7 +1103,7 @@ def plot_dumbbell(df, title, x_title):
                 x=[row["Legacy"], row["Tokenized"]],
                 y=[row["Metric"], row["Metric"]],
                 mode="lines",
-                line=dict(color=GRID, width=3),
+                line=dict(color="#aab4c3", width=4),
                 showlegend=False,
                 hoverinfo="skip",
             )
@@ -1093,7 +1114,7 @@ def plot_dumbbell(df, title, x_title):
             y=df["Metric"],
             mode="markers",
             name="Legacy",
-            marker=dict(color=MUTED, size=11),
+            marker=dict(color=MUTED, size=12, line=dict(color="#ffffff", width=1)),
             hovertemplate="Legacy %{y}: %{x:.2f}<extra></extra>",
         )
     )
@@ -1103,7 +1124,7 @@ def plot_dumbbell(df, title, x_title):
             y=df["Metric"],
             mode="markers",
             name="Tokenized",
-            marker=dict(color=ACCENT, size=11),
+            marker=dict(color=ACCENT, size=12, line=dict(color="#ffffff", width=1)),
             hovertemplate="Tokenized %{y}: %{x:.2f}<extra></extra>",
         )
     )
