@@ -96,17 +96,17 @@ GRID = "#d8dee7"
 PLOTLY_TEMPLATE = "plotly_white"
 SEQUENTIAL_SCALE = [
     [0.0, "#f7fbff"],
-    [0.25, "#d9e7f2"],
-    [0.55, "#7fa6c7"],
-    [0.80, "#2f5f8f"],
-    [1.0, ACCENT],
+    [0.25, "#e4eff7"],
+    [0.55, "#b8d1e5"],
+    [0.80, "#82aacb"],
+    [1.0, "#5d82a7"],
 ]
 DIVERGING_SCALE = [
-    [0.0, POSITIVE],
-    [0.45, "#dce9df"],
+    [0.0, "#7eb28e"],
+    [0.45, "#e4f0e7"],
     [0.50, "#f8fafc"],
-    [0.55, "#f0d8d5"],
-    [1.0, CAUTION],
+    [0.55, "#f4dfdc"],
+    [1.0, "#d88a80"],
 ]
 
 
@@ -964,8 +964,19 @@ def apply_chart_style(fig, title, x_title=None, y_title=None, height=430):
     return fig
 
 
+def format_chart_label(value, unit):
+    if unit == "currency":
+        return f"${value:,.2f}B"
+    if unit == "percent":
+        return f"{value:.2f}%"
+    if unit == "pp":
+        return f"{value:.2f} pp"
+    return f"{value:,.2f}"
+
+
 def plot_liquidity_waterfall(result):
     reduction = result["tokenized_buffer"] - result["legacy_buffer"]
+    values = [result["legacy_buffer"], reduction, result["tokenized_buffer"]]
     fig = go.Figure(
         go.Waterfall(
             measure=["absolute", "relative", "absolute"],
@@ -974,7 +985,9 @@ def plot_liquidity_waterfall(result):
                 "Reduction / capital liberated",
                 "Tokenized liquidity buffer",
             ],
-            y=[result["legacy_buffer"], reduction, result["tokenized_buffer"]],
+            y=values,
+            text=[format_chart_label(value, "currency") for value in values],
+            textposition="outside",
             connector={"line": {"color": GRID}},
             decreasing={"marker": {"color": POSITIVE}},
             increasing={"marker": {"color": GOLD}},
@@ -982,6 +995,7 @@ def plot_liquidity_waterfall(result):
             hovertemplate="%{x}<br>%{y:,.2f} USD billions<extra></extra>",
         )
     )
+    fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
     return apply_chart_style(
         fig,
         "Liquidity Buffer Bridge: From Legacy Reserve to Tokenized Reserve",
@@ -990,6 +1004,12 @@ def plot_liquidity_waterfall(result):
 
 
 def plot_cost_of_debt_waterfall(result, params):
+    values = [
+        result["legacy_kd"] * 100,
+        -params["collateral_efficiency_spread"] * 100,
+        params["technology_risk_premium"] * 100,
+        result["tokenized_kd"] * 100,
+    ]
     fig = go.Figure(
         go.Waterfall(
             measure=["absolute", "relative", "relative", "absolute"],
@@ -999,12 +1019,9 @@ def plot_cost_of_debt_waterfall(result, params):
                 "Technology risk premium",
                 "Tokenized cost of debt",
             ],
-            y=[
-                result["legacy_kd"] * 100,
-                -params["collateral_efficiency_spread"] * 100,
-                params["technology_risk_premium"] * 100,
-                result["tokenized_kd"] * 100,
-            ],
+            y=values,
+            text=[format_chart_label(value, "percent") for value in values],
+            textposition="outside",
             connector={"line": {"color": GRID}},
             decreasing={"marker": {"color": POSITIVE}},
             increasing={"marker": {"color": CAUTION}},
@@ -1012,6 +1029,7 @@ def plot_cost_of_debt_waterfall(result, params):
             hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
         )
     )
+    fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
     return apply_chart_style(
         fig,
         "Cost of Debt Bridge: Efficiency Gain vs. Technology Risk",
@@ -1026,10 +1044,11 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
         index="Scenario", columns="Adoption Label", values="Plot Value"
     ).loc[list(STRESS_SCENARIOS.keys())]
     pivot = pivot[[format_percent(value) for value in ADOPTION_SCENARIOS.values()]]
+    cell_unit = "pp" if show_as_pp else "currency"
     text = (
-        pivot.map(lambda value: f"{value:.2f}")
+        pivot.map(lambda value: format_chart_label(value, cell_unit))
         if hasattr(pivot, "map")
-        else pivot.applymap(lambda value: f"{value:.2f}")
+        else pivot.applymap(lambda value: format_chart_label(value, cell_unit))
     )
     colorscale = DIVERGING_SCALE if diverging else SEQUENTIAL_SCALE
     zmin = None
@@ -1049,6 +1068,7 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
         "colorbar": {"title": value_label},
         "text": text.values,
         "texttemplate": "%{text}",
+        "textfont": {"color": TEXT, "size": 12},
         "hovertemplate": (
             "Scenario: %{y}<br>"
             "Adoption ratio: %{x}<br>"
@@ -1070,12 +1090,17 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
 
 
 def plot_grouped_bar(df):
+    plot_df = df.copy()
+    plot_df["Label"] = plot_df["Additional Usable Collateral"].map(
+        lambda value: format_chart_label(value, "currency")
+    )
     fig = px.bar(
-        df,
+        plot_df,
         x="Scenario",
         y="Additional Usable Collateral",
         color="Adoption Label",
         barmode="group",
+        text="Label",
         color_discrete_sequence=[ACCENT_LIGHT, ACCENT, POSITIVE],
         category_orders={
             "Scenario": list(STRESS_SCENARIOS.keys()),
@@ -1087,6 +1112,12 @@ def plot_grouped_bar(df):
             "Adoption Label": False,
         },
     )
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=11),
+        cliponaxis=False,
+    )
+    fig.update_layout(uniformtext_minsize=10, uniformtext_mode="hide")
     return apply_chart_style(
         fig,
         "Additional Usable Collateral by Scenario and Adoption Level",
@@ -1097,6 +1128,7 @@ def plot_grouped_bar(df):
 
 def plot_dumbbell(df, title, x_title):
     fig = go.Figure()
+    unit = "currency" if "USD" in x_title else "percent"
     for _, row in df.iterrows():
         fig.add_trace(
             go.Scatter(
@@ -1107,6 +1139,26 @@ def plot_dumbbell(df, title, x_title):
                 showlegend=False,
                 hoverinfo="skip",
             )
+        )
+        fig.add_annotation(
+            x=row["Legacy"],
+            y=row["Metric"],
+            text=format_chart_label(row["Legacy"], unit),
+            showarrow=False,
+            xshift=-34,
+            yshift=16,
+            font=dict(color=MUTED, size=11),
+            bgcolor="rgba(255,255,255,0.85)",
+        )
+        fig.add_annotation(
+            x=row["Tokenized"],
+            y=row["Metric"],
+            text=format_chart_label(row["Tokenized"], unit),
+            showarrow=False,
+            xshift=34,
+            yshift=16,
+            font=dict(color=ACCENT, size=11),
+            bgcolor="rgba(255,255,255,0.85)",
         )
     fig.add_trace(
         go.Scatter(
@@ -1128,20 +1180,34 @@ def plot_dumbbell(df, title, x_title):
             hovertemplate="Tokenized %{y}: %{x:.2f}<extra></extra>",
         )
     )
-    return apply_chart_style(fig, title, x_title=x_title, y_title="", height=340)
+    minimum = df[["Legacy", "Tokenized"]].min().min()
+    maximum = df[["Legacy", "Tokenized"]].max().max()
+    padding = max((maximum - minimum) * 0.20, 0.5)
+    fig = apply_chart_style(fig, title, x_title=x_title, y_title="", height=360)
+    fig.update_xaxes(range=[minimum - padding, maximum + padding])
+    return fig
 
 
 def plot_stress_wacc_bar(stress_df):
     plot_df = stress_df.copy()
     plot_df["WACC Change (pp)"] = plot_df["WACC Change"] * 100
+    plot_df["Label"] = plot_df["WACC Change (pp)"].map(
+        lambda value: format_chart_label(value, "pp")
+    )
     fig = px.bar(
         plot_df,
         x="Scenario",
         y="WACC Change (pp)",
         color="WACC Change (pp)",
+        text="Label",
         color_continuous_scale=DIVERGING_SCALE,
         color_continuous_midpoint=0,
         hover_data={"WACC Change (pp)": ":.2f"},
+    )
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=11),
+        cliponaxis=False,
     )
     fig.add_hline(y=0, line_width=1, line_color=TEXT)
     fig.update_layout(coloraxis_showscale=False)
@@ -1157,6 +1223,7 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
     values = df[column] * 100 if show_as_pp else df[column]
     mean_value = values.mean()
     median_value = values.median()
+    unit = "pp" if show_as_pp else "currency"
     fig = go.Figure(
         go.Histogram(
             x=values,
@@ -1170,13 +1237,13 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
     fig.add_vline(
         x=mean_value,
         line_color=CAUTION,
-        annotation_text="Mean",
+        annotation_text=f"Mean {format_chart_label(mean_value, unit)}",
         annotation_position="top",
     )
     fig.add_vline(
         x=median_value,
         line_color=POSITIVE,
-        annotation_text="Median",
+        annotation_text=f"Median {format_chart_label(median_value, unit)}",
         annotation_position="top",
     )
     if show_as_pp:
@@ -1184,7 +1251,7 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
             x=0,
             line_color=TEXT,
             line_dash="dash",
-            annotation_text="Zero",
+            annotation_text="Zero 0.00 pp",
             annotation_position="bottom",
         )
     return apply_chart_style(fig, title, x_title=x_title, y_title="Frequency")
@@ -1192,8 +1259,10 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
 
 def plot_boxplot(df, columns, title, y_title, show_as_pp=False):
     fig = go.Figure()
+    unit = "pp" if show_as_pp else "currency"
     for column in columns:
         values = df[column] * 100 if show_as_pp else df[column]
+        median_value = values.median()
         fig.add_trace(
             go.Box(
                 y=values,
@@ -1202,33 +1271,50 @@ def plot_boxplot(df, columns, title, y_title, show_as_pp=False):
                 boxmean=True,
             )
         )
+        fig.add_annotation(
+            x=column,
+            y=median_value,
+            text=f"Median {format_chart_label(median_value, unit)}",
+            showarrow=False,
+            yshift=16,
+            font=dict(color=TEXT, size=11),
+            bgcolor="rgba(255,255,255,0.88)",
+        )
     return apply_chart_style(fig, title, y_title=y_title)
 
 
 def plot_tornado(df, value_col, title, x_title, show_as_pp=False):
     plot_df = df.sort_values(value_col, ascending=True).copy()
     values = plot_df[value_col] * 100 if show_as_pp else plot_df[value_col]
+    unit = "pp" if show_as_pp else "currency"
+    plot_df["Label"] = [format_chart_label(value, unit) for value in values]
     fig = px.bar(
         plot_df.assign(Impact=values),
         x="Impact",
         y="Variable",
         orientation="h",
+        text="Label",
         color_discrete_sequence=[ACCENT],
         hover_data={"Impact": ":.2f"},
+    )
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=11),
+        cliponaxis=False,
     )
     return apply_chart_style(fig, title, x_title=x_title, y_title="")
 
 
 def plot_sankey(result):
     labels = [
-        "Total liquid assets",
-        "Marketable securities",
-        "Tokenized collateral pool",
-        "Usable collateral",
-        "Liquidity buffer reduction",
-        "Capital liberated",
-        "Additional income",
-        "Adjusted ROE",
+        f"Total liquid assets<br>{format_currency_b(APPLE_DATA['total_liquid_assets'])}",
+        f"Marketable securities<br>{format_currency_b(APPLE_DATA['total_marketable_securities'])}",
+        f"Tokenized collateral pool<br>{format_currency_b(result['tokenized_pool'])}",
+        f"Usable collateral<br>{format_currency_b(result['tokenized_usable_collateral'])}",
+        f"Liquidity buffer reduction<br>{format_currency_b(result['capital_liberated'])}",
+        f"Capital liberated<br>{format_currency_b(result['capital_liberated'])}",
+        f"Additional income<br>{format_currency_b(result['additional_income'])}",
+        f"Adjusted ROE<br>{format_percent(result['adjusted_roe'])}",
     ]
     fig = go.Figure(
         go.Sankey(
@@ -1478,14 +1564,23 @@ def render_stress_analysis(params):
             var_name="Buffer Type",
             value_name="USD Billions",
         )
+        buffer_df["Label"] = buffer_df["USD Billions"].map(
+            lambda value: format_chart_label(value, "currency")
+        )
         buffer_fig = px.bar(
             buffer_df,
             x="Scenario",
             y="USD Billions",
             color="Buffer Type",
             barmode="group",
+            text="Label",
             color_discrete_sequence=[MUTED, ACCENT],
             title="Liquidity Buffer Comparison Under Stress",
+        )
+        buffer_fig.update_traces(
+            textposition="outside",
+            textfont=dict(color=TEXT, size=11),
+            cliponaxis=False,
         )
         st.plotly_chart(
             apply_chart_style(
@@ -1503,14 +1598,23 @@ def render_stress_analysis(params):
         var_name="Metric",
         value_name="USD Billions",
     )
+    chart_df["Label"] = chart_df["USD Billions"].map(
+        lambda value: format_chart_label(value, "currency")
+    )
     stress_fig = px.bar(
         chart_df,
         x="Scenario",
         y="USD Billions",
         color="Metric",
         barmode="group",
+        text="Label",
         color_discrete_sequence=[ACCENT, ACCENT_LIGHT],
         title="Stress Scenario Collateral and Liquidity Effects",
+    )
+    stress_fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=11),
+        cliponaxis=False,
     )
     st.plotly_chart(
         apply_chart_style(
