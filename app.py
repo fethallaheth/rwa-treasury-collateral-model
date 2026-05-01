@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 
@@ -81,6 +82,16 @@ STRESS_SCENARIOS = {
         "collateral_efficiency_spread": 0.002,
     },
 }
+
+
+ACCENT = "#173b63"
+ACCENT_LIGHT = "#7895b2"
+TEXT = "#172033"
+MUTED = "#667085"
+POSITIVE = "#2f6f4e"
+CAUTION = "#b42318"
+GRID = "#d8dee7"
+PLOTLY_TEMPLATE = "plotly_white"
 
 
 def calculate_tokenized_pool(tokenizable_asset_pool, tokenized_share):
@@ -263,6 +274,7 @@ def run_adoption_scenarios(params):
                 "Tokenized Pool": result["tokenized_pool"],
                 "Legacy Usable Collateral": result["legacy_usable_collateral"],
                 "Tokenized Usable Collateral": result["tokenized_usable_collateral"],
+                "Additional Usable Collateral": result["usable_collateral_difference"],
                 "Capital Liberated": result["capital_liberated"],
                 "Tokenized Cost of Debt": result["tokenized_kd"],
                 "Legacy WACC": result["legacy_wacc"],
@@ -283,16 +295,62 @@ def run_stress_scenarios(params):
         rows.append(
             {
                 "Scenario": scenario,
+                "Tokenized Share": scenario_params["tokenized_share"],
+                "Tokenized Pool": result["tokenized_pool"],
+                "Legacy Usable Collateral": result["legacy_usable_collateral"],
+                "Tokenized Usable Collateral": result["tokenized_usable_collateral"],
+                "Additional Usable Collateral": result["usable_collateral_difference"],
                 "Capital Liberated": result["capital_liberated"],
                 "Tokenized Cost of Debt": result["tokenized_kd"],
+                "Legacy WACC": result["legacy_wacc"],
+                "Tokenized WACC": result["tokenized_wacc"],
                 "WACC Change": result["wacc_change"],
+                "Adjusted ROE": result["adjusted_roe"],
                 "ROE Change": result["roe_change"],
                 "Usable Collateral Difference": result["usable_collateral_difference"],
+                "Legacy Liquidity Buffer": result["legacy_buffer"],
+                "Tokenized Liquidity Buffer": result["tokenized_buffer"],
             }
         )
     return pd.DataFrame(rows)
 
 
+def run_scenario_matrix(params):
+    rows = []
+    for market_scenario, stress_values in STRESS_SCENARIOS.items():
+        for adoption_scenario, tokenized_share in ADOPTION_SCENARIOS.items():
+            scenario_params = {
+                **params,
+                **stress_values,
+                "tokenized_share": tokenized_share,
+            }
+            result = run_scenario(scenario_params)
+            rows.append(
+                {
+                    "Scenario": market_scenario,
+                    "Adoption Scenario": adoption_scenario,
+                    "Adoption": tokenized_share,
+                    "Adoption Label": format_percent(tokenized_share),
+                    "Tokenized Pool": result["tokenized_pool"],
+                    "Legacy Usable Collateral": result["legacy_usable_collateral"],
+                    "Tokenized Usable Collateral": result[
+                        "tokenized_usable_collateral"
+                    ],
+                    "Additional Usable Collateral": result[
+                        "usable_collateral_difference"
+                    ],
+                    "Capital Liberated": result["capital_liberated"],
+                    "Legacy WACC": result["legacy_wacc"],
+                    "Tokenized WACC": result["tokenized_wacc"],
+                    "WACC Change": result["wacc_change"],
+                    "Adjusted ROE": result["adjusted_roe"],
+                    "ROE Change": result["roe_change"],
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+@st.cache_data(show_spinner=False)
 def run_monte_carlo(params, simulations=5000, seed=42):
     rng = np.random.default_rng(seed)
     rows = []
@@ -324,6 +382,7 @@ def run_monte_carlo(params, simulations=5000, seed=42):
                 "Tokenized Pool": result["tokenized_pool"],
                 "Legacy Usable Collateral": result["legacy_usable_collateral"],
                 "Tokenized Usable Collateral": result["tokenized_usable_collateral"],
+                "Additional Usable Collateral": result["usable_collateral_difference"],
                 "Capital Liberated": result["capital_liberated"],
                 "Tokenized Cost of Debt": result["tokenized_kd"],
                 "Legacy WACC": result["legacy_wacc"],
@@ -655,46 +714,64 @@ def render_baseline_data():
 
 
 def render_core_kpis(result):
-    st.header("Key Simulation Outputs")
+    st.header("Executive Simulation Summary")
     note(
-        "The model estimates collateral usability, liquidity buffer reduction, capital "
-        "liberation, funding cost compression, WACC impact, and ROE impact under the "
-        "selected counterfactual assumptions."
+        "Positive capital liberated and additional usable collateral indicate improved "
+        "liquidity and collateral efficiency. WACC improvement is conditional on the "
+        "balance between collateral efficiency gains and technology risk premiums."
     )
-    kpis = [
-        ("Tokenized collateral pool", format_currency_b(result["tokenized_pool"]), ""),
-        (
-            "Legacy usable collateral",
-            format_currency_b(result["legacy_usable_collateral"]),
-            "",
-        ),
-        (
-            "Tokenized usable collateral",
-            format_currency_b(result["tokenized_usable_collateral"]),
-            "",
-        ),
-        (
-            "Additional usable collateral",
-            format_currency_b(result["usable_collateral_difference"]),
-            "",
-        ),
-        ("Legacy liquidity buffer", format_currency_b(result["legacy_buffer"]), ""),
-        ("Tokenized liquidity buffer", format_currency_b(result["tokenized_buffer"]), ""),
-        ("Capital liberated", format_currency_b(result["capital_liberated"]), ""),
-        ("Legacy cost of debt", format_percent(result["legacy_kd"]), ""),
-        ("Tokenized cost of debt", format_percent(result["tokenized_kd"]), ""),
-        ("Legacy WACC", format_percent(result["legacy_wacc"]), ""),
-        ("Tokenized WACC", format_percent(result["tokenized_wacc"]), ""),
-        ("WACC change", format_pp(result["wacc_change"]), "Percentage points"),
-        ("Legacy ROE", format_percent(result["legacy_roe"]), ""),
-        ("Adjusted ROE", format_percent(result["adjusted_roe"]), ""),
-        ("ROE change", format_pp(result["roe_change"]), "Percentage points"),
+
+    rows = [
+        [
+            ("Tokenized collateral pool", format_currency_b(result["tokenized_pool"]), None, "normal"),
+            (
+                "Additional usable collateral",
+                format_currency_b(result["usable_collateral_difference"]),
+                format_currency_b(result["usable_collateral_difference"]),
+                "normal",
+            ),
+            (
+                "Capital liberated",
+                format_currency_b(result["capital_liberated"]),
+                format_currency_b(result["capital_liberated"]),
+                "normal",
+            ),
+            ("Legacy WACC", format_percent(result["legacy_wacc"]), None, "normal"),
+            (
+                "Tokenized WACC",
+                format_percent(result["tokenized_wacc"]),
+                format_pp(result["wacc_change"]),
+                "inverse",
+            ),
+        ],
+        [
+            (
+                "WACC change",
+                format_pp(result["wacc_change"]),
+                format_pp(result["wacc_change"]),
+                "inverse",
+            ),
+            ("Legacy ROE", format_percent(result["legacy_roe"]), None, "normal"),
+            (
+                "Adjusted ROE",
+                format_percent(result["adjusted_roe"]),
+                format_pp(result["roe_change"]),
+                "normal",
+            ),
+            (
+                "ROE change",
+                format_pp(result["roe_change"]),
+                format_pp(result["roe_change"]),
+                "normal",
+            ),
+            ("Tokenized cost of debt", format_percent(result["tokenized_kd"]), None, "normal"),
+        ],
     ]
-    for start in range(0, len(kpis), 3):
-        cols = st.columns(3)
-        for col, (label, value, helper) in zip(cols, kpis[start : start + 3]):
+    for metric_row in rows:
+        cols = st.columns(5)
+        for col, (label, value, delta, delta_color) in zip(cols, metric_row):
             with col:
-                render_kpi(label, value, helper)
+                st.metric(label, value, delta=delta, delta_color=delta_color)
 
     st.info(
         "Book-value WACC uses accounting values from Apple's financial statements. "
@@ -710,7 +787,48 @@ def render_core_kpis(result):
 
 
 def render_comparison_table(result, params):
-    st.header("Legacy vs Tokenized Comparison Table")
+    st.header("Baseline Financial Bridges")
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(plot_liquidity_waterfall(result), use_container_width=True)
+        note(
+            "This chart shows how tokenized collateral may reduce precautionary "
+            "liquidity reserves. The difference between the legacy and tokenized "
+            "buffer represents capital liberated under the selected assumptions."
+        )
+    with cols[1]:
+        st.plotly_chart(plot_cost_of_debt_waterfall(result, params), use_container_width=True)
+        note(
+            "The cost of debt bridge separates the expected funding benefit of "
+            "improved collateral mobility from the additional risk premium introduced "
+            "by tokenized infrastructure."
+        )
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_dumbbell(
+                build_amount_dumbbell_data(result),
+                "Legacy vs. Tokenized Scenario Comparison: Amount Metrics",
+                "USD billions",
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_dumbbell(
+                build_rate_dumbbell_data(result),
+                "Legacy vs. Tokenized Scenario Comparison: Percentage Metrics",
+                "Percent",
+            ),
+            use_container_width=True,
+        )
+    note(
+        "The connected-dot comparison highlights how the same asset base behaves "
+        "under legacy and tokenized collateral infrastructure."
+    )
+
+    st.subheader("Legacy vs Tokenized Comparison Table")
     rows = [
         {
             "Metric": "Haircut",
@@ -766,8 +884,11 @@ def format_scenario_table(df):
         "Tokenized Pool",
         "Legacy Usable Collateral",
         "Tokenized Usable Collateral",
+        "Additional Usable Collateral",
         "Capital Liberated",
         "Usable Collateral Difference",
+        "Legacy Liquidity Buffer",
+        "Tokenized Liquidity Buffer",
     ]
     percent_cols = [
         "Tokenized Share",
@@ -789,56 +910,497 @@ def format_scenario_table(df):
     return formatted
 
 
-def render_adoption_analysis(params):
-    st.header("Adoption Scenario Analysis")
-    note(
-        "The adoption scenarios compare conservative, moderate, and aggressive levels "
-        "of tokenized marketable securities while holding the other selected assumptions constant."
+def apply_chart_style(fig, title, x_title=None, y_title=None, height=430):
+    fig.update_layout(
+        title=title,
+        template=PLOTLY_TEMPLATE,
+        height=height,
+        margin=dict(l=30, r=30, t=72, b=40),
+        font=dict(color=TEXT, size=13),
+        title_font=dict(size=18, color=TEXT),
+        legend_title_text="",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
     )
-    df = run_adoption_scenarios(params)
-    st.dataframe(format_scenario_table(df), use_container_width=True, hide_index=True)
+    fig.update_xaxes(title=x_title, gridcolor=GRID, zerolinecolor=GRID)
+    fig.update_yaxes(title=y_title, gridcolor=GRID, zerolinecolor=GRID)
+    return fig
 
-    capital_fig = px.bar(
+
+def plot_liquidity_waterfall(result):
+    reduction = result["tokenized_buffer"] - result["legacy_buffer"]
+    fig = go.Figure(
+        go.Waterfall(
+            measure=["absolute", "relative", "absolute"],
+            x=[
+                "Legacy liquidity buffer",
+                "Reduction / capital liberated",
+                "Tokenized liquidity buffer",
+            ],
+            y=[result["legacy_buffer"], reduction, result["tokenized_buffer"]],
+            connector={"line": {"color": GRID}},
+            decreasing={"marker": {"color": POSITIVE}},
+            increasing={"marker": {"color": CAUTION}},
+            totals={"marker": {"color": ACCENT}},
+            hovertemplate="%{x}<br>%{y:,.2f} USD billions<extra></extra>",
+        )
+    )
+    return apply_chart_style(
+        fig,
+        "Liquidity Buffer Bridge: From Legacy Reserve to Tokenized Reserve",
+        y_title="USD billions",
+    )
+
+
+def plot_cost_of_debt_waterfall(result, params):
+    fig = go.Figure(
+        go.Waterfall(
+            measure=["absolute", "relative", "relative", "absolute"],
+            x=[
+                "Legacy cost of debt",
+                "Collateral efficiency spread",
+                "Technology risk premium",
+                "Tokenized cost of debt",
+            ],
+            y=[
+                result["legacy_kd"] * 100,
+                -params["collateral_efficiency_spread"] * 100,
+                params["technology_risk_premium"] * 100,
+                result["tokenized_kd"] * 100,
+            ],
+            connector={"line": {"color": GRID}},
+            decreasing={"marker": {"color": POSITIVE}},
+            increasing={"marker": {"color": CAUTION}},
+            totals={"marker": {"color": ACCENT}},
+            hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
+        )
+    )
+    return apply_chart_style(
+        fig,
+        "Cost of Debt Bridge: Efficiency Gain vs. Technology Risk",
+        y_title="Percent",
+    )
+
+
+def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=False):
+    plot_df = df.copy()
+    plot_df["Plot Value"] = plot_df[value_col] * 100 if show_as_pp else plot_df[value_col]
+    pivot = plot_df.pivot(
+        index="Scenario", columns="Adoption Label", values="Plot Value"
+    ).loc[list(STRESS_SCENARIOS.keys())]
+    pivot = pivot[[format_percent(value) for value in ADOPTION_SCENARIOS.values()]]
+    text = pivot.applymap(lambda value: f"{value:.2f}")
+    colorscale = "RdBu_r" if diverging else "Blues"
+
+    heatmap_options = {
+        "z": pivot.values,
+        "x": pivot.columns,
+        "y": pivot.index,
+        "colorscale": colorscale,
+        "colorbar": {"title": value_label},
+        "text": text.values,
+        "texttemplate": "%{text}",
+        "hovertemplate": (
+            "Scenario: %{y}<br>"
+            "Adoption ratio: %{x}<br>"
+            f"{value_label}: " + "%{z:.2f}<extra></extra>"
+        ),
+    }
+    if diverging:
+        heatmap_options["zmid"] = 0
+
+    fig = go.Figure(
+        go.Heatmap(**heatmap_options)
+    )
+    return apply_chart_style(
+        fig,
+        title,
+        x_title="Tokenized adoption ratio",
+        y_title="Market scenario",
+    )
+
+
+def plot_grouped_bar(df):
+    fig = px.bar(
         df,
         x="Scenario",
-        y="Capital Liberated",
-        color="Scenario",
-        color_discrete_sequence=["#6c7f93", "#173b63", "#8aa6bf"],
-        title="Capital liberated by adoption scenario",
+        y="Additional Usable Collateral",
+        color="Adoption Label",
+        barmode="group",
+        color_discrete_sequence=["#8aa6bf", ACCENT, "#4f6f91"],
+        category_orders={
+            "Scenario": list(STRESS_SCENARIOS.keys()),
+            "Adoption Label": [format_percent(value) for value in ADOPTION_SCENARIOS.values()],
+        },
+        hover_data={
+            "Additional Usable Collateral": ":,.2f",
+            "Adoption": ":.0%",
+            "Adoption Label": False,
+        },
     )
-    capital_fig.update_layout(yaxis_title="USD billions", showlegend=False)
-    st.plotly_chart(capital_fig, use_container_width=True)
+    return apply_chart_style(
+        fig,
+        "Additional Usable Collateral by Scenario and Adoption Level",
+        x_title="Market scenario",
+        y_title="USD billions",
+    )
 
-    rate_df = df.copy()
-    rate_df["WACC Change (pp)"] = rate_df["WACC Change"] * 100
-    rate_df["ROE Change (pp)"] = rate_df["ROE Change"] * 100
+
+def plot_dumbbell(df, title, x_title):
+    fig = go.Figure()
+    for _, row in df.iterrows():
+        fig.add_trace(
+            go.Scatter(
+                x=[row["Legacy"], row["Tokenized"]],
+                y=[row["Metric"], row["Metric"]],
+                mode="lines",
+                line=dict(color=GRID, width=3),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+    fig.add_trace(
+        go.Scatter(
+            x=df["Legacy"],
+            y=df["Metric"],
+            mode="markers",
+            name="Legacy",
+            marker=dict(color=MUTED, size=11),
+            hovertemplate="Legacy %{y}: %{x:.2f}<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["Tokenized"],
+            y=df["Metric"],
+            mode="markers",
+            name="Tokenized",
+            marker=dict(color=ACCENT, size=11),
+            hovertemplate="Tokenized %{y}: %{x:.2f}<extra></extra>",
+        )
+    )
+    return apply_chart_style(fig, title, x_title=x_title, y_title="", height=340)
+
+
+def plot_stress_wacc_bar(stress_df):
+    plot_df = stress_df.copy()
+    plot_df["WACC Change (pp)"] = plot_df["WACC Change"] * 100
+    fig = px.bar(
+        plot_df,
+        x="Scenario",
+        y="WACC Change (pp)",
+        color="WACC Change (pp)",
+        color_continuous_scale="RdBu_r",
+        color_continuous_midpoint=0,
+        hover_data={"WACC Change (pp)": ":.2f"},
+    )
+    fig.add_hline(y=0, line_width=1, line_color=TEXT)
+    fig.update_layout(coloraxis_showscale=False)
+    return apply_chart_style(
+        fig,
+        "WACC Change Under Market Stress Conditions",
+        x_title="Market scenario",
+        y_title="Percentage points",
+    )
+
+
+def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
+    values = df[column] * 100 if show_as_pp else df[column]
+    mean_value = values.mean()
+    median_value = values.median()
+    fig = go.Figure(
+        go.Histogram(
+            x=values,
+            nbinsx=45,
+            marker_color=ACCENT,
+            opacity=0.86,
+            hovertemplate=f"{x_title}: %{{x:.2f}}<br>Frequency: %{{y}}<extra></extra>",
+        )
+    )
+    fig.add_vline(
+        x=mean_value,
+        line_color=CAUTION,
+        annotation_text="Mean",
+        annotation_position="top",
+    )
+    fig.add_vline(
+        x=median_value,
+        line_color=POSITIVE,
+        annotation_text="Median",
+        annotation_position="top",
+    )
+    if show_as_pp:
+        fig.add_vline(
+            x=0,
+            line_color=TEXT,
+            line_dash="dash",
+            annotation_text="Zero",
+            annotation_position="bottom",
+        )
+    return apply_chart_style(fig, title, x_title=x_title, y_title="Frequency")
+
+
+def plot_boxplot(df, columns, title, y_title, show_as_pp=False):
+    fig = go.Figure()
+    for column in columns:
+        values = df[column] * 100 if show_as_pp else df[column]
+        fig.add_trace(
+            go.Box(
+                y=values,
+                name=column,
+                marker_color=ACCENT if column == columns[0] else ACCENT_LIGHT,
+                boxmean=True,
+            )
+        )
+    return apply_chart_style(fig, title, y_title=y_title)
+
+
+def plot_tornado(df, value_col, title, x_title, show_as_pp=False):
+    plot_df = df.sort_values(value_col, ascending=True).copy()
+    values = plot_df[value_col] * 100 if show_as_pp else plot_df[value_col]
+    fig = px.bar(
+        plot_df.assign(Impact=values),
+        x="Impact",
+        y="Variable",
+        orientation="h",
+        color_discrete_sequence=[ACCENT],
+        hover_data={"Impact": ":.2f"},
+    )
+    return apply_chart_style(fig, title, x_title=x_title, y_title="")
+
+
+def plot_sankey(result):
+    labels = [
+        "Total liquid assets",
+        "Marketable securities",
+        "Tokenized collateral pool",
+        "Usable collateral",
+        "Liquidity buffer reduction",
+        "Capital liberated",
+        "Additional income",
+        "Adjusted ROE",
+    ]
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=18,
+                thickness=16,
+                line=dict(color=GRID, width=0.5),
+                label=labels,
+                color=[
+                    "#d9e3ef",
+                    "#b8cce0",
+                    "#8aa6bf",
+                    ACCENT_LIGHT,
+                    "#93b5a6",
+                    POSITIVE,
+                    "#c8a46a",
+                    ACCENT,
+                ],
+            ),
+            link=dict(
+                source=[0, 1, 2, 3, 4, 5, 6],
+                target=[1, 2, 3, 4, 5, 6, 7],
+                value=[
+                    APPLE_DATA["total_marketable_securities"],
+                    result["tokenized_pool"],
+                    result["tokenized_usable_collateral"],
+                    result["capital_liberated"],
+                    result["capital_liberated"],
+                    result["additional_income"],
+                    max(result["additional_income"], 0.01),
+                ],
+                color=[
+                    "rgba(23,59,99,0.18)",
+                    "rgba(23,59,99,0.25)",
+                    "rgba(23,59,99,0.32)",
+                    "rgba(47,111,78,0.28)",
+                    "rgba(47,111,78,0.35)",
+                    "rgba(200,164,106,0.35)",
+                    "rgba(23,59,99,0.35)",
+                ],
+            ),
+        )
+    )
+    return apply_chart_style(
+        fig,
+        "Simulation Mechanism: From Liquid Assets to Capital Efficiency",
+        height=460,
+    )
+
+
+def build_amount_dumbbell_data(result):
+    return pd.DataFrame(
+        [
+            {
+                "Metric": "Usable collateral",
+                "Legacy": result["legacy_usable_collateral"],
+                "Tokenized": result["tokenized_usable_collateral"],
+            },
+            {
+                "Metric": "Liquidity buffer",
+                "Legacy": result["legacy_buffer"],
+                "Tokenized": result["tokenized_buffer"],
+            },
+        ]
+    )
+
+
+def build_rate_dumbbell_data(result):
+    return pd.DataFrame(
+        [
+            {
+                "Metric": "Cost of debt",
+                "Legacy": result["legacy_kd"] * 100,
+                "Tokenized": result["tokenized_kd"] * 100,
+            },
+            {
+                "Metric": "WACC",
+                "Legacy": result["legacy_wacc"] * 100,
+                "Tokenized": result["tokenized_wacc"] * 100,
+            },
+            {
+                "Metric": "ROE",
+                "Legacy": result["legacy_roe"] * 100,
+                "Tokenized": result["adjusted_roe"] * 100,
+            },
+        ]
+    )
+
+
+def matrix_pivot(df, value_col):
+    pivot = df.pivot(
+        index="Scenario", columns="Adoption Label", values=value_col
+    ).loc[list(STRESS_SCENARIOS.keys())]
+    return pivot[[format_percent(value) for value in ADOPTION_SCENARIOS.values()]]
+
+
+def style_matrix(pivot, formatter, favorable="high"):
+    numeric = pivot.astype(float)
+    max_abs = numeric.abs().max().max() or 1
+    max_value = numeric.max().max() or 1
+    fills = {
+        POSITIVE: "47, 111, 78",
+        CAUTION: "180, 35, 24",
+    }
+
+    def cell_style(value):
+        if favorable == "negative":
+            intensity = min(abs(value) / max_abs, 1)
+            color = POSITIVE if value < 0 else CAUTION
+        else:
+            intensity = min(max(value, 0) / max_value, 1)
+            color = POSITIVE
+        alpha = 0.10 + intensity * 0.24
+        return f"background-color: rgba({fills[color]}, {alpha:.2f});"
+
+    return pivot.style.format(formatter).applymap(cell_style)
+
+
+def render_adoption_analysis(params):
+    st.header("Scenario Matrix Analysis")
+    note(
+        "The scenario matrix combines four market conditions with three adoption "
+        "levels, using the same model calculations as the selected baseline case."
+    )
+    df = run_scenario_matrix(params)
+
     cols = st.columns(2)
     with cols[0]:
-        wacc_fig = px.bar(
-            rate_df,
-            x="Scenario",
-            y="WACC Change (pp)",
-            color="Scenario",
-            color_discrete_sequence=["#6c7f93", "#173b63", "#8aa6bf"],
-            title="WACC change by adoption scenario",
+        st.plotly_chart(
+            plot_heatmap(
+                df,
+                "Capital Liberated",
+                "Capital Liberated Across Adoption and Market Scenarios",
+                "USD billions",
+            ),
+            use_container_width=True,
         )
-        wacc_fig.update_layout(yaxis_title="Percentage points", showlegend=False)
-        st.plotly_chart(wacc_fig, use_container_width=True)
     with cols[1]:
-        roe_fig = px.bar(
-            rate_df,
-            x="Scenario",
-            y="ROE Change (pp)",
-            color="Scenario",
-            color_discrete_sequence=["#6c7f93", "#173b63", "#8aa6bf"],
-            title="ROE change by adoption scenario",
+        st.plotly_chart(
+            plot_heatmap(
+                df,
+                "WACC Change",
+                "WACC Change Across Adoption and Market Scenarios",
+                "Percentage points",
+                show_as_pp=True,
+                diverging=True,
+            ),
+            use_container_width=True,
         )
-        roe_fig.update_layout(yaxis_title="Percentage points", showlegend=False)
-        st.plotly_chart(roe_fig, use_container_width=True)
+    note(
+        "The heatmap shows how liquidity release changes jointly with market stress "
+        "and tokenization adoption. Negative WACC values indicate a reduction in WACC, "
+        "while positive values indicate that tokenization-related risk costs outweigh "
+        "the collateral efficiency benefit."
+    )
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_heatmap(
+                df,
+                "ROE Change",
+                "ROE Change Across Adoption and Market Scenarios",
+                "Percentage points",
+                show_as_pp=True,
+                diverging=True,
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(plot_grouped_bar(df), use_container_width=True)
+    note(
+        "ROE change reflects the assumed redeployment of liberated capital at an "
+        "after-tax reinvestment return. Additional usable collateral captures the "
+        "collateral-efficiency channel from lower tokenized haircuts."
+    )
+
+    with st.expander("Scenario Matrix Tables", expanded=True):
+        table_cols = st.columns(2)
+        with table_cols[0]:
+            st.caption("Capital liberated")
+            st.dataframe(
+                style_matrix(
+                    matrix_pivot(df, "Capital Liberated"),
+                    lambda value: format_currency_b(value),
+                ),
+                use_container_width=True,
+            )
+            st.caption("Additional usable collateral")
+            st.dataframe(
+                style_matrix(
+                    matrix_pivot(df, "Additional Usable Collateral"),
+                    lambda value: format_currency_b(value),
+                ),
+                use_container_width=True,
+            )
+        with table_cols[1]:
+            st.caption("WACC change")
+            st.dataframe(
+                style_matrix(
+                    matrix_pivot(df, "WACC Change"),
+                    lambda value: format_pp(value),
+                    favorable="negative",
+                ),
+                use_container_width=True,
+            )
+            st.caption("ROE change")
+            st.dataframe(
+                style_matrix(
+                    matrix_pivot(df, "ROE Change"),
+                    lambda value: format_pp(value),
+                ),
+                use_container_width=True,
+            )
+        note(
+            "The matrix view provides a compact summary of the twelve scenario "
+            "outcomes produced by the four market conditions and three adoption levels."
+        )
 
 
 def render_stress_analysis(params):
-    st.header("Market Stress Scenario Analysis")
+    st.header("Stress Scenario Analysis")
     note(
         "Stress scenarios test whether the simulated benefits remain visible when "
         "haircuts, liquidity buffers, technology risk premia, and collateral efficiency "
@@ -850,6 +1412,39 @@ def render_stress_analysis(params):
     )
     df = run_stress_scenarios(params)
     st.dataframe(format_scenario_table(df), use_container_width=True, hide_index=True)
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(plot_stress_wacc_bar(df), use_container_width=True)
+        note(
+            "The zero line separates scenarios where tokenization reduces WACC from "
+            "scenarios where higher risk premia offset the funding benefit."
+        )
+    with cols[1]:
+        buffer_df = df.melt(
+            id_vars="Scenario",
+            value_vars=["Legacy Liquidity Buffer", "Tokenized Liquidity Buffer"],
+            var_name="Buffer Type",
+            value_name="USD Billions",
+        )
+        buffer_fig = px.bar(
+            buffer_df,
+            x="Scenario",
+            y="USD Billions",
+            color="Buffer Type",
+            barmode="group",
+            color_discrete_sequence=[MUTED, ACCENT],
+            title="Liquidity Buffer Comparison Under Stress",
+        )
+        st.plotly_chart(
+            apply_chart_style(
+                buffer_fig,
+                "Liquidity Buffer Comparison Under Stress",
+                x_title="Market scenario",
+                y_title="USD billions",
+            ),
+            use_container_width=True,
+        )
 
     chart_df = df.melt(
         id_vars="Scenario",
@@ -863,84 +1458,109 @@ def render_stress_analysis(params):
         y="USD Billions",
         color="Metric",
         barmode="group",
-        color_discrete_sequence=["#173b63", "#7895b2"],
-        title="Stress scenario collateral and liquidity effects",
+        color_discrete_sequence=[ACCENT, ACCENT_LIGHT],
+        title="Stress Scenario Collateral and Liquidity Effects",
     )
-    st.plotly_chart(stress_fig, use_container_width=True)
-
-    rate_df = df.copy()
-    rate_df["WACC Change (pp)"] = rate_df["WACC Change"] * 100
-    rate_df["ROE Change (pp)"] = rate_df["ROE Change"] * 100
-    cols = st.columns(2)
-    with cols[0]:
-        wacc_fig = px.line(
-            rate_df,
-            x="Scenario",
-            y="WACC Change (pp)",
-            markers=True,
-            title="WACC change under stress",
-            color_discrete_sequence=["#173b63"],
-        )
-        wacc_fig.update_layout(yaxis_title="Percentage points")
-        st.plotly_chart(wacc_fig, use_container_width=True)
-    with cols[1]:
-        roe_fig = px.line(
-            rate_df,
-            x="Scenario",
-            y="ROE Change (pp)",
-            markers=True,
-            title="ROE change under stress",
-            color_discrete_sequence=["#7895b2"],
-        )
-        roe_fig.update_layout(yaxis_title="Percentage points")
-        st.plotly_chart(roe_fig, use_container_width=True)
+    st.plotly_chart(
+        apply_chart_style(
+            stress_fig,
+            "Stress Scenario Collateral and Liquidity Effects",
+            x_title="Market scenario",
+            y_title="USD billions",
+        ),
+        use_container_width=True,
+    )
 
 
 def render_monte_carlo(params):
-    st.header("Monte Carlo Robustness Testing")
+    st.header("Robustness and Sensitivity")
+    st.subheader("Monte Carlo Robustness Testing")
     note(
         "The Monte Carlo simulation evaluates whether the model's conclusions remain "
         "stable when key assumptions vary within plausible ranges."
     )
-    if st.button("Run Monte Carlo Simulation", type="primary"):
-        mc_df = run_monte_carlo(params)
-        summary_cols = ["Capital Liberated", "WACC Change", "ROE Change"]
-        summary = mc_df[summary_cols].agg(["mean", "median", "std", "min", "max"])
-        summary.loc["5th percentile"] = mc_df[summary_cols].quantile(0.05)
-        summary.loc["95th percentile"] = mc_df[summary_cols].quantile(0.95)
-        formatted_summary = summary.copy()
-        formatted_summary["Capital Liberated"] = formatted_summary[
-            "Capital Liberated"
-        ].map(format_currency_b)
-        formatted_summary["WACC Change"] = formatted_summary["WACC Change"].map(format_pp)
-        formatted_summary["ROE Change"] = formatted_summary["ROE Change"].map(format_pp)
-        st.dataframe(formatted_summary, use_container_width=True)
+    mc_df = run_monte_carlo(params)
+    summary_cols = [
+        "Capital Liberated",
+        "Additional Usable Collateral",
+        "WACC Change",
+        "ROE Change",
+    ]
+    summary = mc_df[summary_cols].agg(["mean", "median", "std", "min", "max"])
+    summary.loc["5th percentile"] = mc_df[summary_cols].quantile(0.05)
+    summary.loc["95th percentile"] = mc_df[summary_cols].quantile(0.95)
+    formatted_summary = summary.copy()
+    formatted_summary["Capital Liberated"] = formatted_summary["Capital Liberated"].map(
+        format_currency_b
+    )
+    formatted_summary["Additional Usable Collateral"] = formatted_summary[
+        "Additional Usable Collateral"
+    ].map(format_currency_b)
+    formatted_summary["WACC Change"] = formatted_summary["WACC Change"].map(format_pp)
+    formatted_summary["ROE Change"] = formatted_summary["ROE Change"].map(format_pp)
+    st.dataframe(formatted_summary, use_container_width=True)
 
-        cols = st.columns(3)
-        charts = [
-            ("WACC Change", "WACC change distribution"),
-            ("Capital Liberated", "Capital liberated distribution"),
-            ("ROE Change", "ROE change distribution"),
-        ]
-        for col, (metric, title) in zip(cols, charts):
-            with col:
-                plot_df = mc_df.copy()
-                x_col = metric
-                if metric in ["WACC Change", "ROE Change"]:
-                    x_col = f"{metric} (pp)"
-                    plot_df[x_col] = plot_df[metric] * 100
-                fig = px.histogram(
-                    plot_df,
-                    x=x_col,
-                    nbins=45,
-                    title=title,
-                    color_discrete_sequence=["#173b63"],
-                )
-                st.plotly_chart(fig, use_container_width=True)
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_histogram_with_markers(
+                mc_df,
+                "WACC Change",
+                "Monte Carlo Distribution of WACC Change",
+                "WACC change, percentage points",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+        note(
+            "The Monte Carlo distribution shows whether the WACC effect remains "
+            "stable when key assumptions vary within predefined ranges."
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_histogram_with_markers(
+                mc_df,
+                "Capital Liberated",
+                "Monte Carlo Distribution of Capital Liberated",
+                "Capital liberated, USD billions",
+            ),
+            use_container_width=True,
+        )
+        note(
+            "This distribution shows the range of possible liquidity release outcomes "
+            "under uncertainty."
+        )
+
+    tabs = st.tabs(["USD outcomes", "Percentage-point outcomes"])
+    with tabs[0]:
+        st.plotly_chart(
+            plot_boxplot(
+                mc_df,
+                ["Capital Liberated", "Additional Usable Collateral"],
+                "Monte Carlo Output Dispersion: USD Outcomes",
+                "USD billions",
+            ),
+            use_container_width=True,
+        )
+    with tabs[1]:
+        st.plotly_chart(
+            plot_boxplot(
+                mc_df,
+                ["WACC Change", "ROE Change"],
+                "Monte Carlo Output Dispersion: Percentage-Point Outcomes",
+                "Percentage points",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+    note(
+        "Box plots summarize the dispersion of model outcomes and help identify "
+        "whether results are concentrated or highly sensitive to assumption changes."
+    )
 
 
 def render_sensitivity(params):
-    st.header("Sensitivity Analysis")
+    st.subheader("Sensitivity Analysis")
     note(
         "Sensitivity analysis varies one parameter at a time while holding other "
         "assumptions constant. This identifies which assumptions have the largest "
@@ -955,17 +1575,36 @@ def render_sensitivity(params):
     formatted["ROE Change Range"] = formatted["ROE Change Range"].map(format_pp)
     st.dataframe(formatted, use_container_width=True, hide_index=True)
 
-    chart_df = df.sort_values("Capital Liberated Range", ascending=True)
-    fig = px.bar(
-        chart_df,
-        x="Capital Liberated Range",
-        y="Variable",
-        orientation="h",
-        title="Sensitivity by capital liberated range",
-        color_discrete_sequence=["#173b63"],
-    )
-    fig.update_layout(xaxis_title="USD billions", yaxis_title="")
-    st.plotly_chart(fig, use_container_width=True)
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_tornado(
+                df,
+                "WACC Change Range",
+                "Sensitivity of WACC Change to Key Assumptions",
+                "Percentage-point range",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+        note(
+            "The WACC tornado chart identifies which assumptions have the greatest "
+            "influence on the cost-of-capital result."
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_tornado(
+                df,
+                "Capital Liberated Range",
+                "Sensitivity of Capital Liberated to Key Assumptions",
+                "USD billions",
+            ),
+            use_container_width=True,
+        )
+        note(
+            "The capital liberated tornado chart shows whether liquidity efficiency "
+            "is mainly driven by adoption intensity or by buffer-ratio assumptions."
+        )
 
 
 def render_risk_architecture():
@@ -996,8 +1635,17 @@ def render_risk_architecture():
     st.dataframe(architecture, use_container_width=True, hide_index=True)
 
 
-def render_interpretation_and_limitations():
-    st.header("Academic Interpretation")
+def render_interpretation_and_limitations(result):
+    st.header("Model Logic")
+    st.plotly_chart(plot_sankey(result), use_container_width=True)
+    note(
+        "The Sankey diagram summarizes the logic of the simulation: tokenization "
+        "converts part of the marketable securities pool into programmable collateral, "
+        "which may increase usable collateral, reduce liquidity buffers, liberate "
+        "capital, and affect ROE through reinvestment."
+    )
+
+    st.subheader("Academic Interpretation")
     note(
         "The simulation suggests that RWA tokenization affects financial market efficiency "
         "mainly through collateral mobility and liquidity buffer reduction. The value does "
@@ -1031,9 +1679,9 @@ def main():
     result = run_scenario(params)
 
     render_header()
-    render_baseline_data()
-    st.divider()
     render_core_kpis(result)
+    st.divider()
+    render_baseline_data()
     st.divider()
     render_comparison_table(result, params)
     st.divider()
@@ -1047,7 +1695,7 @@ def main():
     st.divider()
     render_risk_architecture()
     st.divider()
-    render_interpretation_and_limitations()
+    render_interpretation_and_limitations(result)
 
 
 if __name__ == "__main__":
