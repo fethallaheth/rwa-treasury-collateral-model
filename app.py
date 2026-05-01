@@ -992,23 +992,35 @@ def render_adoption_analysis(params):
     )
     st.plotly_chart(capital_fig, use_container_width=True)
 
-    rate_df = df.melt(
-        id_vars="Scenario",
-        value_vars=["WACC Change", "ROE Change"],
-        var_name="Metric",
-        value_name="Percentage-point change",
-    )
-    rate_fig = px.bar(
-        rate_df,
+    chart_rates = df.copy()
+    chart_rates["WACC Change (pp)"] = chart_rates["WACC Change"] * 100
+    chart_rates["ROE Change (pp)"] = chart_rates["ROE Change"] * 100
+
+    wacc_fig = px.bar(
+        chart_rates,
         x="Scenario",
-        y="Percentage-point change",
-        color="Metric",
-        barmode="group",
-        color_discrete_sequence=["#173b63", "#7895b2"],
-        title="Funding and profitability effects by adoption level",
+        y="WACC Change (pp)",
+        color="Scenario",
+        color_discrete_sequence=["#6c7f93", "#173b63", "#8aa6bf"],
+        title="WACC change by adoption level",
     )
-    rate_fig.update_layout(yaxis_title="Percentage points", legend_title_text="")
-    st.plotly_chart(rate_fig, use_container_width=True)
+    wacc_fig.update_layout(
+        yaxis_title="Percentage points", showlegend=False, title_x=0.0
+    )
+    st.plotly_chart(wacc_fig, use_container_width=True)
+
+    roe_fig = px.bar(
+        chart_rates,
+        x="Scenario",
+        y="ROE Change (pp)",
+        color="Scenario",
+        color_discrete_sequence=["#6c7f93", "#173b63", "#8aa6bf"],
+        title="ROE change by adoption level",
+    )
+    roe_fig.update_layout(
+        yaxis_title="Percentage points", showlegend=False, title_x=0.0
+    )
+    st.plotly_chart(roe_fig, use_container_width=True)
 
 
 def render_stress_analysis(params):
@@ -1043,22 +1055,31 @@ def render_stress_analysis(params):
     fig.update_layout(legend_title_text="")
     st.plotly_chart(fig, use_container_width=True)
 
-    rate_df = df.melt(
-        id_vars="Scenario",
-        value_vars=["WACC Change", "ROE Change"],
-        var_name="Metric",
-        value_name="Change",
-    )
-    fig_rates = px.line(
-        rate_df,
+    chart_rates = df.copy()
+    chart_rates["WACC Change (pp)"] = chart_rates["WACC Change"] * 100
+    chart_rates["ROE Change (pp)"] = chart_rates["ROE Change"] * 100
+
+    wacc_fig = px.line(
+        chart_rates,
         x="Scenario",
-        y="Change",
-        color="Metric",
+        y="WACC Change (pp)",
         markers=True,
-        color_discrete_sequence=["#173b63", "#6c7f93"],
+        color_discrete_sequence=["#173b63"],
+        title="WACC change under market stress scenarios",
     )
-    fig_rates.update_layout(yaxis_title="Percentage-point change", legend_title_text="")
-    st.plotly_chart(fig_rates, use_container_width=True)
+    wacc_fig.update_layout(yaxis_title="Percentage points", title_x=0.0)
+    st.plotly_chart(wacc_fig, use_container_width=True)
+
+    roe_fig = px.line(
+        chart_rates,
+        x="Scenario",
+        y="ROE Change (pp)",
+        markers=True,
+        color_discrete_sequence=["#7895b2"],
+        title="ROE change under market stress scenarios",
+    )
+    roe_fig.update_layout(yaxis_title="Percentage points", title_x=0.0)
+    st.plotly_chart(roe_fig, use_container_width=True)
 
 
 def render_monte_carlo(params):
