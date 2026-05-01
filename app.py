@@ -84,14 +84,30 @@ STRESS_SCENARIOS = {
 }
 
 
-ACCENT = "#173b63"
-ACCENT_LIGHT = "#7895b2"
+ACCENT = "#0f2f56"
+ACCENT_LIGHT = "#5d82a7"
+ACCENT_PALE = "#d9e7f2"
 TEXT = "#172033"
 MUTED = "#667085"
 POSITIVE = "#2f6f4e"
 CAUTION = "#b42318"
+GOLD = "#b68b2c"
 GRID = "#d8dee7"
 PLOTLY_TEMPLATE = "plotly_white"
+SEQUENTIAL_SCALE = [
+    [0.0, "#f7fbff"],
+    [0.25, "#d9e7f2"],
+    [0.55, "#7fa6c7"],
+    [0.80, "#2f5f8f"],
+    [1.0, ACCENT],
+]
+DIVERGING_SCALE = [
+    [0.0, POSITIVE],
+    [0.45, "#dce9df"],
+    [0.50, "#f8fafc"],
+    [0.55, "#f0d8d5"],
+    [1.0, CAUTION],
+]
 
 
 def calculate_tokenized_pool(tokenizable_asset_pool, tokenized_share):
@@ -471,7 +487,7 @@ def style_app():
             letter-spacing: 0;
         }
         .note-box {
-            border-left: 4px solid #173b63;
+            border-left: 4px solid #0f2f56;
             background: #ffffff;
             border-radius: 6px;
             padding: 0.9rem 1rem;
@@ -940,7 +956,7 @@ def plot_liquidity_waterfall(result):
             y=[result["legacy_buffer"], reduction, result["tokenized_buffer"]],
             connector={"line": {"color": GRID}},
             decreasing={"marker": {"color": POSITIVE}},
-            increasing={"marker": {"color": CAUTION}},
+            increasing={"marker": {"color": GOLD}},
             totals={"marker": {"color": ACCENT}},
             hovertemplate="%{x}<br>%{y:,.2f} USD billions<extra></extra>",
         )
@@ -994,13 +1010,21 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
         if hasattr(pivot, "map")
         else pivot.applymap(lambda value: f"{value:.2f}")
     )
-    colorscale = "RdBu_r" if diverging else "Blues"
+    colorscale = DIVERGING_SCALE if diverging else SEQUENTIAL_SCALE
+    zmin = None
+    zmax = None
+    if diverging:
+        max_abs = float(np.nanmax(np.abs(pivot.values))) or 1.0
+        zmin = -max_abs
+        zmax = max_abs
 
     heatmap_options = {
         "z": pivot.values,
         "x": pivot.columns,
         "y": pivot.index,
         "colorscale": colorscale,
+        "zmin": zmin,
+        "zmax": zmax,
         "colorbar": {"title": value_label},
         "text": text.values,
         "texttemplate": "%{text}",
@@ -1031,7 +1055,7 @@ def plot_grouped_bar(df):
         y="Additional Usable Collateral",
         color="Adoption Label",
         barmode="group",
-        color_discrete_sequence=["#8aa6bf", ACCENT, "#4f6f91"],
+        color_discrete_sequence=[ACCENT_LIGHT, ACCENT, POSITIVE],
         category_orders={
             "Scenario": list(STRESS_SCENARIOS.keys()),
             "Adoption Label": [format_percent(value) for value in ADOPTION_SCENARIOS.values()],
@@ -1094,7 +1118,7 @@ def plot_stress_wacc_bar(stress_df):
         x="Scenario",
         y="WACC Change (pp)",
         color="WACC Change (pp)",
-        color_continuous_scale="RdBu_r",
+        color_continuous_scale=DIVERGING_SCALE,
         color_continuous_midpoint=0,
         hover_data={"WACC Change (pp)": ":.2f"},
     )
@@ -1117,6 +1141,7 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
             x=values,
             nbinsx=45,
             marker_color=ACCENT,
+            marker_line=dict(color="#ffffff", width=0.5),
             opacity=0.86,
             hovertemplate=f"{x_title}: %{{x:.2f}}<br>Frequency: %{{y}}<extra></extra>",
         )
@@ -1152,7 +1177,7 @@ def plot_boxplot(df, columns, title, y_title, show_as_pp=False):
             go.Box(
                 y=values,
                 name=column,
-                marker_color=ACCENT if column == columns[0] else ACCENT_LIGHT,
+                marker_color=ACCENT if column == columns[0] else GOLD,
                 boxmean=True,
             )
         )
@@ -1194,11 +1219,11 @@ def plot_sankey(result):
                 color=[
                     "#d9e3ef",
                     "#b8cce0",
-                    "#8aa6bf",
+                    ACCENT_LIGHT,
                     ACCENT_LIGHT,
                     "#93b5a6",
                     POSITIVE,
-                    "#c8a46a",
+                    GOLD,
                     ACCENT,
                 ],
             ),
