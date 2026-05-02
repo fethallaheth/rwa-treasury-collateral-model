@@ -585,8 +585,8 @@ def sidebar_controls():
         on_change=apply_adoption_preset,
     )
     st.sidebar.caption(
-        "Chapter sections use the fixed 3.6 methodology: baseline is Normal Market "
-        "+ 25%, adoption varies under Normal Market, and stress varies under 25%."
+        "The baseline, Monte Carlo, and sensitivity sections use the selected base "
+        "case. Adoption, stress, and matrix sections keep fixed comparison settings."
     )
 
     st.sidebar.subheader("Model Parameters")
@@ -690,6 +690,8 @@ def sidebar_controls():
 
     params = {key: st.session_state[key] for key in DEFAULTS}
     params["capital_structure_basis"] = st.session_state.capital_structure_basis
+    params["selected_market_scenario"] = st.session_state.scenario_selector
+    params["selected_adoption_label"] = st.session_state.adoption_selector
     return params
 
 
@@ -1261,23 +1263,38 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
     fig.add_vline(
         x=mean_value,
         line_color=CAUTION,
-        annotation_text=f"Mean {format_chart_label(mean_value, unit)}",
-        annotation_position="top",
     )
     fig.add_vline(
         x=median_value,
         line_color=POSITIVE,
-        annotation_text=f"Median {format_chart_label(median_value, unit)}",
-        annotation_position="top",
     )
+    summary_lines = [
+        f"Mean: {format_chart_label(mean_value, unit)}",
+        f"Median: {format_chart_label(median_value, unit)}",
+    ]
     if show_as_pp:
         fig.add_vline(
             x=0,
             line_color=TEXT,
             line_dash="dash",
-            annotation_text="Zero 0.00 pp",
-            annotation_position="bottom",
         )
+        summary_lines.append("Zero: 0.00 pp")
+
+    fig.add_annotation(
+        x=0.98,
+        y=0.98,
+        xref="paper",
+        yref="paper",
+        text="<br>".join(summary_lines),
+        showarrow=False,
+        align="left",
+        xanchor="right",
+        yanchor="top",
+        bgcolor="rgba(255,255,255,0.90)",
+        bordercolor=GRID,
+        borderwidth=1,
+        font=dict(color=TEXT, size=11),
+    )
     return apply_chart_style(fig, title, x_title=x_title, y_title="Frequency")
 
 
@@ -1476,9 +1493,27 @@ def fixed_methodology_params(params, market_scenario="Normal Market", adoption=0
 
 
 def build_baseline_results(params):
-    baseline_params = fixed_methodology_params(params)
+    baseline_params = params.copy()
     result = run_scenario(baseline_params)
     rows = [
+        {
+            "Indicator": "Capital structure basis",
+            "Legacy": result["capital_structure_basis"],
+            "Tokenized": result["capital_structure_basis"],
+            "Difference": "-",
+        },
+        {
+            "Indicator": "Debt value used for WACC",
+            "Legacy": format_currency_b(result["debt_value"]),
+            "Tokenized": format_currency_b(result["debt_value"]),
+            "Difference": "-",
+        },
+        {
+            "Indicator": "Equity value used for WACC",
+            "Legacy": format_currency_b(result["equity_value"]),
+            "Tokenized": format_currency_b(result["equity_value"]),
+            "Difference": "-",
+        },
         {
             "Indicator": "Tokenized collateral pool",
             "Legacy": "-",
@@ -1777,7 +1812,12 @@ def plot_matrix_heatmap(matrix_df, value_col, title, show_as_pp=False):
 
 def render_chapter_baseline(result, baseline_params, baseline_table):
     st.header("3.6.1 Baseline Scenario Results")
-    note("Baseline case: Normal Market with 25% tokenization adoption.")
+    note(
+        "Selected base case: "
+        f"{baseline_params['selected_market_scenario']} with "
+        f"{format_percent(baseline_params['tokenized_share'])} tokenization adoption. "
+        f"Capital structure basis: {baseline_params['capital_structure_basis']}."
+    )
     st.subheader("Baseline Legacy vs Tokenized Results")
     st.dataframe(baseline_table, use_container_width=True, hide_index=True)
     download_csv("Download baseline results CSV", baseline_table, "baseline_results.csv")
