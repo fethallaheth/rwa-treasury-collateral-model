@@ -1,579 +1,662 @@
-For your dashboard/model, the results should be organized into **four levels**:
+I want you to restructure my existing Streamlit dashboard so it works as a **data tables and charts companion** for my Master thesis Chapter 3.
+
+The website should NOT contain long academic writing. I will write the discussion in the thesis paper myself. The dashboard should mainly provide:
+
+* clean result tables
+* finance-style charts
+* downloadable outputs if possible
+* short labels and minimal interpretation notes only
+
+## Project Context
+
+Thesis title:
+
+**RWA Tokenization and Its Impact on Financial Markets**
+
+Applied chapter:
+
+**Chapter 3: Applied Simulation of Tokenized Treasury Collateral and Its Impact on Financial Market Efficiency**
+
+The model compares:
+
+* Legacy collateral infrastructure
+* Tokenized RWA collateral infrastructure
+
+The model uses:
+
+* Apple Inc. 2025 financial data
+* Real-company baseline
+* Counterfactual simulation
+* Adoption scenarios
+* Stress scenarios
+* Monte Carlo robustness testing
+* Sensitivity analysis
+
+Important academic framing:
+
+* Do NOT claim Apple uses tokenized collateral.
+* Apple is only a real-company baseline.
+* The model is counterfactual.
+* The website is for tables and charts, not for long theoretical explanation.
+
+---
+
+# Main Goal
+
+Restructure the Streamlit app around the final **3.6 Results and Discussion** structure:
 
 ```text
-1. Core output numbers
-2. Comparison tables
-3. Scenario results
-4. Charts and robustness results
+3.6 Results and Discussion
+
+3.6.1 Baseline Scenario Results
+3.6.2 Adoption Effect under Normal Market Conditions
+3.6.3 Stress Effect under Moderate Adoption
+3.6.4 Cross-Scenario Matrix Results
+3.6.5 Monte Carlo Robustness Results
+3.6.6 Sensitivity Analysis Results
+3.6.7 Financial Interpretation of the Results
 ```
 
-These are the outputs you need for **3.6 Results and Discussion**.
+The dashboard should mirror this structure using sections, tables, and charts.
+
+No long paragraphs. Use only short helper notes where needed.
 
 ---
 
-# 1. Core Output Numbers
+# Dashboard Layout
 
-These are the main numbers your dashboard should display as KPI cards.
-
-## A. Collateral Outputs
-
-| Output                       | Meaning                                                      |
-| ---------------------------- | ------------------------------------------------------------ |
-| Tokenized collateral pool    | Value of marketable securities assumed to be tokenized       |
-| Legacy usable collateral     | Collateral value after legacy haircut                        |
-| Tokenized usable collateral  | Collateral value after tokenized haircut                     |
-| Additional usable collateral | Extra collateral capacity created by lower tokenized haircut |
-
-These answer:
-
-> Does tokenization make the same assets more usable as collateral?
+Use this exact layout.
 
 ---
 
-## B. Liquidity Outputs
+## 1. Header
 
-| Output                           | Meaning                                              |
-| -------------------------------- | ---------------------------------------------------- |
-| Legacy liquidity buffer          | Liquidity reserve required in the traditional system |
-| Effective tokenized buffer ratio | Adjusted buffer ratio after partial tokenization     |
-| Tokenized liquidity buffer       | Liquidity reserve required after tokenization        |
-| Capital liberated                | Liquidity released because the required buffer falls |
+Title:
 
-These answer:
+**Tokenized Treasury Collateral Simulation**
 
-> Does tokenization reduce idle liquidity?
+Subtitle:
 
----
+**Tables and charts for Chapter 3 results**
 
-## C. Funding Cost Outputs
+Short note:
 
-| Output                       | Meaning                                                   |
-| ---------------------------- | --------------------------------------------------------- |
-| Legacy cost of debt          | Baseline borrowing cost                                   |
-| Collateral efficiency spread | Borrowing cost reduction from better collateral           |
-| Technology risk premium      | Extra risk cost from tokenized infrastructure             |
-| Tokenized cost of debt       | New borrowing cost after efficiency benefit and tech risk |
-| Cost of debt change          | Difference between legacy and tokenized cost of debt      |
+**Counterfactual model using Apple Inc. 2025 financial data. Apple is used only as a real-company baseline and is not assumed to use RWA tokenization.**
 
-These answer:
-
-> Does better collateral mobility reduce funding cost?
+Keep this short.
 
 ---
 
-## D. Capital Efficiency Outputs
+## 2. Sidebar Controls
 
-| Output         | Meaning                                 |
-| -------------- | --------------------------------------- |
-| Legacy WACC    | Cost of capital before tokenization     |
-| Tokenized WACC | Cost of capital after tokenization      |
-| WACC change    | Difference in percentage points         |
-| Legacy ROE     | Return on equity before tokenization    |
-| Adjusted ROE   | ROE after reinvesting liberated capital |
-| ROE change     | Difference in percentage points         |
+The sidebar should allow the user to control:
 
-These answer:
+### Capital Structure Basis
 
-> Does tokenization improve capital efficiency?
+* Book Values
+* Market Values
+
+If Market Values is selected, allow editable market capitalization input.
+
+### Base Scenario Settings
+
+* Market scenario selector:
+
+  * Normal Market
+  * Moderate Stress
+  * Severe Stress
+  * 2008-Style Liquidity Shock
+
+* Adoption level selector:
+
+  * Conservative 10%
+  * Moderate 25%
+  * Aggressive 40%
+
+### Model Parameters
+
+Keep sliders for:
+
+* tokenized share
+* legacy haircut
+* tokenized haircut
+* legacy buffer ratio
+* tokenized buffer ratio
+* legacy cost of debt
+* collateral efficiency spread
+* technology risk premium
+* risk-free rate
+* beta
+* market risk premium
+* after-tax reinvestment return
+
+But make the dashboard sections below use the fixed methodology:
+
+* Baseline = Normal Market + 25% adoption
+* Adoption analysis = Normal Market fixed, adoption changes 10%, 25%, 40%
+* Stress analysis = 25% adoption fixed, market scenario changes
+* Cross-scenario matrix = 4 market scenarios × 3 adoption levels
 
 ---
 
-# 2. Main Dashboard KPI Cards
+# Section 3.6.1 — Baseline Scenario Results
 
-Your dashboard should show these cards at the top:
+Purpose:
+
+Show the base case:
 
 ```text
-Tokenized Collateral Pool
-Legacy Usable Collateral
-Tokenized Usable Collateral
-Additional Usable Collateral
-Legacy Liquidity Buffer
-Tokenized Liquidity Buffer
-Capital Liberated
-Legacy Cost of Debt
-Tokenized Cost of Debt
-Legacy WACC
-Tokenized WACC
-WACC Change
-Legacy ROE
-Adjusted ROE
-ROE Change
+Normal Market + 25% adoption
 ```
 
-This gives the jury a quick view of the model’s main outputs.
+Create:
 
----
+## Table: Baseline Legacy vs Tokenized Results
 
-# 3. Required Tables
+Columns:
 
-## Table 1 — Apple Baseline Data
+| Indicator | Legacy | Tokenized | Difference |
+| --------- | -----: | --------: | ---------: |
 
-| Metric                            |     Value |
-| --------------------------------- | --------: |
-| Cash and cash equivalents         |  $35.934B |
-| Current marketable securities     |  $18.763B |
-| Non-current marketable securities |  $77.723B |
-| Total liquid assets               | $132.420B |
-| Total marketable securities       |  $96.486B |
-| Total debt                        |  $98.657B |
-| Net income                        | $112.010B |
-| Shareholders’ equity              |  $73.733B |
-| Effective tax rate                |     15.6% |
+Rows:
 
-Purpose:
+* Tokenized collateral pool
+* Haircut
+* Usable collateral
+* Liquidity buffer
+* Capital liberated
+* Cost of debt
+* WACC
+* ROE
+* Liquidity efficiency ratio
 
-> Shows the real-company baseline.
+## Charts
 
----
+Add:
 
-## Table 2 — Baseline Simulation Assumptions
+### Chart 1: Liquidity Buffer Waterfall
 
-| Parameter                        | Value |
-| -------------------------------- | ----: |
-| Tokenized asset share            |   25% |
-| Legacy haircut                   |    5% |
-| Tokenized haircut                |    3% |
-| Legacy liquidity buffer ratio    |   20% |
-| Tokenized liquidity buffer ratio |   14% |
-| Legacy cost of debt              | 4.19% |
-| Collateral efficiency spread     | 0.70% |
-| Technology risk premium          | 0.20% |
-| After-tax reinvestment return    |    5% |
+Title:
 
-Purpose:
-
-> Shows the assumptions behind the base simulation.
-
----
-
-## Table 3 — Legacy vs Tokenized Results
-
-| Metric                     | Legacy | Tokenized | Difference |
-| -------------------------- | -----: | --------: | ---------: |
-| Usable collateral          |      X |         X |          X |
-| Liquidity buffer           |      X |         X |          X |
-| Cost of debt               |      X |         X |          X |
-| WACC                       |      X |         X |          X |
-| ROE                        |      X |         X |          X |
-| Liquidity efficiency ratio |      X |         X |          X |
-
-Purpose:
-
-> Your main comparison table.
-
----
-
-## Table 4 — Adoption Scenario Results
-
-| Scenario     | Tokenized Share | Tokenized Pool | Capital Liberated | WACC Change | ROE Change |
-| ------------ | --------------: | -------------: | ----------------: | ----------: | ---------: |
-| Conservative |             10% |              X |                 X |           X |          X |
-| Moderate     |             25% |              X |                 X |           X |          X |
-| Aggressive   |             40% |              X |                 X |           X |          X |
-
-Purpose:
-
-> Shows how impact changes as tokenization adoption increases.
-
----
-
-## Table 5 — Stress Scenario Results
-
-| Scenario                   | Capital Liberated | Tokenized Cost of Debt | WACC Change | ROE Change | Additional Usable Collateral |
-| -------------------------- | ----------------: | ---------------------: | ----------: | ---------: | ---------------------------: |
-| Normal Market              |                 X |                      X |           X |          X |                            X |
-| Moderate Stress            |                 X |                      X |           X |          X |                            X |
-| Severe Stress              |                 X |                      X |           X |          X |                            X |
-| 2008-Style Liquidity Shock |                 X |                      X |           X |          X |                            X |
-
-Purpose:
-
-> Shows whether the model still works under market stress.
-
----
-
-## Table 6 — Monte Carlo Summary Results
-
-| Output                       | Mean | Median | Std. Dev. | Min | Max | 5th Percentile | 95th Percentile |
-| ---------------------------- | ---: | -----: | --------: | --: | --: | -------------: | --------------: |
-| Capital liberated            |    X |      X |         X |   X |   X |              X |               X |
-| Additional usable collateral |    X |      X |         X |   X |   X |              X |               X |
-| WACC change                  |    X |      X |         X |   X |   X |              X |               X |
-| ROE change                   |    X |      X |         X |   X |   X |              X |               X |
-
-Purpose:
-
-> Shows robustness under uncertainty.
-
----
-
-## Table 7 — Sensitivity Analysis Results
-
-| Variable Tested                  | Impact on Capital Liberated | Impact on WACC Change | Impact on ROE Change | Sensitivity Level |
-| -------------------------------- | --------------------------: | --------------------: | -------------------: | ----------------- |
-| Tokenized asset share            |                           X |                     X |                    X | High/Medium/Low   |
-| Tokenized haircut                |                           X |                     X |                    X | High/Medium/Low   |
-| Tokenized liquidity buffer ratio |                           X |                     X |                    X | High/Medium/Low   |
-| Collateral efficiency spread     |                           X |                     X |                    X | High/Medium/Low   |
-| Technology risk premium          |                           X |                     X |                    X | High/Medium/Low   |
-
-Purpose:
-
-> Shows which variables drive the model most.
-
----
-
-# 4. Required Charts
-
-You do not need too many charts. Use **5–7 strong charts** maximum.
-
-## Chart 1 — Legacy vs Tokenized Usable Collateral
-
-Type:
-
-```text
-Bar chart
-```
+**Liquidity Buffer Bridge: Legacy to Tokenized**
 
 Shows:
 
-```text
-Legacy usable collateral vs Tokenized usable collateral
-```
+* legacy liquidity buffer
+* reduction / capital liberated
+* tokenized liquidity buffer
 
-Purpose:
+Use Plotly waterfall.
 
-> Demonstrates collateral efficiency improvement.
+### Chart 2: Cost of Debt Bridge
 
----
+Title:
 
-## Chart 2 — Legacy vs Tokenized Liquidity Buffer
-
-Type:
-
-```text
-Bar chart
-```
+**Cost of Debt Bridge: Efficiency Gain vs Technology Risk**
 
 Shows:
 
-```text
-Legacy buffer vs Tokenized buffer
-```
+* legacy cost of debt
+* collateral efficiency spread as negative
+* technology risk premium as positive
+* tokenized cost of debt
+
+Use Plotly waterfall.
+
+### Optional Chart 3: Legacy vs Tokenized Dumbbell
+
+Title:
+
+**Legacy vs Tokenized Baseline Comparison**
+
+Use connected dot/dumbbell chart for:
+
+* usable collateral
+* liquidity buffer
+* cost of debt
+* WACC
+* ROE
+
+If units conflict, split into:
+
+* Amount metrics
+* Percentage metrics
+
+Add only one short note:
+
+**Baseline case: Normal Market with 25% tokenization adoption.**
+
+---
+
+# Section 3.6.2 — Adoption Effect under Normal Market Conditions
 
 Purpose:
 
-> Shows liquidity buffer reduction.
+Show what happens when adoption changes while market condition stays fixed.
+
+Use:
+
+```text
+Market condition = Normal Market
+Adoption levels = 10%, 25%, 40%
+```
+
+Create:
+
+## Table: Adoption Effect under Normal Market
+
+Columns:
+
+| Adoption Level | Tokenized Share | Tokenized Pool | Additional Usable Collateral | Capital Liberated | WACC Change | ROE Change |
+| -------------- | --------------: | -------------: | ---------------------------: | ----------------: | ----------: | ---------: |
+
+Rows:
+
+* Conservative 10%
+* Moderate 25%
+* Aggressive 40%
+
+## Charts
+
+### Chart 1: Capital Liberated by Adoption Level
+
+Grouped or simple bar chart.
+
+### Chart 2: Additional Usable Collateral by Adoption Level
+
+Bar chart.
+
+### Chart 3: ROE Change by Adoption Level
+
+Bar chart.
+
+Short note:
+
+**This section isolates the adoption effect by keeping market conditions fixed at Normal Market.**
 
 ---
 
-## Chart 3 — Capital Liberated by Adoption Scenario
-
-Type:
-
-```text
-Bar chart
-```
-
-Shows:
-
-```text
-Conservative vs Moderate vs Aggressive
-```
+# Section 3.6.3 — Stress Effect under Moderate Adoption
 
 Purpose:
 
-> Shows that adoption intensity changes the size of the benefit.
+Show what happens when market stress changes while adoption remains fixed.
+
+Use:
+
+```text
+Adoption = 25%
+Market scenarios = Normal, Moderate Stress, Severe Stress, 2008-Style Liquidity Shock
+```
+
+Create:
+
+## Table: Stress Effect under 25% Adoption
+
+Columns:
+
+| Market Scenario | Additional Usable Collateral | Capital Liberated | Tokenized Cost of Debt | WACC Change | ROE Change |
+| --------------- | ---------------------------: | ----------------: | ---------------------: | ----------: | ---------: |
+
+Rows:
+
+* Normal Market
+* Moderate Stress
+* Severe Stress
+* 2008-Style Liquidity Shock
+
+## Charts
+
+### Chart 1: Capital Liberated under Stress Scenarios
+
+Bar chart.
+
+### Chart 2: WACC Change under Stress Scenarios
+
+Bar chart with a horizontal zero line.
+
+### Chart 3: Tokenized Cost of Debt under Stress Scenarios
+
+Line or bar chart.
+
+Short note:
+
+**This section isolates the stress effect by keeping adoption fixed at 25%.**
+
+Add small warning under the 2008 scenario:
+
+**The 2008-style scenario is a stress-test reference, not a historical tokenization case.**
 
 ---
 
-## Chart 4 — WACC: Legacy vs Tokenized
-
-Type:
-
-```text
-Bar chart or KPI delta
-```
-
-Shows:
-
-```text
-Legacy WACC vs Tokenized WACC
-```
+# Section 3.6.4 — Cross-Scenario Matrix Results
 
 Purpose:
 
-> Shows capital cost effect.
+Show the full scenario space:
+
+```text
+4 market scenarios × 3 adoption levels = 12 cases
+```
+
+Create matrix tables and heatmaps.
+
+## Matrix Tables
+
+Create four matrix tables:
+
+### Table 1: Capital Liberated Matrix
+
+Rows:
+
+* Normal Market
+* Moderate Stress
+* Severe Stress
+* 2008-Style Liquidity Shock
+
+Columns:
+
+* 10% Adoption
+* 25% Adoption
+* 40% Adoption
+
+Values:
+
+* capital liberated
+
+### Table 2: Additional Usable Collateral Matrix
+
+Same layout.
+
+### Table 3: WACC Change Matrix
+
+Same layout.
+
+### Table 4: ROE Change Matrix
+
+Same layout.
+
+Use conditional formatting:
+
+* Higher capital liberated = stronger positive shading
+* Higher additional usable collateral = stronger positive shading
+* Negative WACC change = favorable
+* Positive WACC change = caution
+* Positive ROE change = favorable
+
+## Heatmaps
+
+Create:
+
+### Heatmap 1: Capital Liberated
+
+Title:
+
+**Capital Liberated Across Scenario Matrix**
+
+### Heatmap 2: WACC Change
+
+Title:
+
+**WACC Change Across Scenario Matrix**
+
+Use a diverging scale centered at zero.
+
+### Heatmap 3: ROE Change
+
+Title:
+
+**ROE Change Across Scenario Matrix**
+
+Short note:
+
+**The matrix summarizes all 12 scenario outcomes generated by combining four market conditions with three adoption levels.**
 
 ---
 
-## Chart 5 — Stress Scenario Results
-
-Type:
-
-```text
-Grouped bar chart
-```
-
-Shows:
-
-```text
-Normal, Moderate Stress, Severe Stress, 2008-Style Shock
-```
-
-Metrics:
-
-```text
-Capital liberated
-WACC change
-ROE change
-```
+# Section 3.6.5 — Monte Carlo Robustness Results
 
 Purpose:
 
-> Shows whether benefits remain under stress.
+Show uncertainty and robustness.
+
+Create:
+
+## Table: Monte Carlo Summary Statistics
+
+Columns:
+
+| Output | Mean | Median | Std. Dev. | Min | Max | 5th Percentile | 95th Percentile |
+| ------ | ---: | -----: | --------: | --: | --: | -------------: | --------------: |
+
+Rows:
+
+* Capital liberated
+* Additional usable collateral
+* Tokenized WACC
+* WACC change
+* Adjusted ROE
+* ROE change
+
+## Charts
+
+### Chart 1: Monte Carlo Distribution of Capital Liberated
+
+Histogram with mean and median vertical lines.
+
+### Chart 2: Monte Carlo Distribution of WACC Change
+
+Histogram with mean, median, and zero vertical lines.
+
+### Chart 3: Monte Carlo Distribution of ROE Change
+
+Histogram with mean and median vertical lines.
+
+### Chart 4: Monte Carlo Box Plot
+
+Create two box plots:
+
+* USD outcomes: capital liberated, additional usable collateral
+* Percentage-point outcomes: WACC change, ROE change
+
+Use tabs if needed:
+
+* “Distributions”
+* “Box Plots”
+
+Short note:
+
+**Monte Carlo results show how the outputs behave when key assumptions vary within predefined ranges.**
+
+Performance requirement:
+
+Use `@st.cache_data` for Monte Carlo simulation.
 
 ---
 
-## Chart 6 — Monte Carlo Distribution of WACC Change
-
-Type:
-
-```text
-Histogram
-```
-
-Shows:
-
-```text
-Distribution of WACC change across 5,000 runs
-```
+# Section 3.6.6 — Sensitivity Analysis Results
 
 Purpose:
 
-> Shows robustness and uncertainty.
+Show which assumptions drive the model.
+
+Create:
+
+## Table: Sensitivity Analysis Results
+
+Columns:
+
+| Variable Tested | Impact on Capital Liberated | Impact on WACC Change | Impact on ROE Change | Main Interpretation |
+| --------------- | --------------------------: | --------------------: | -------------------: | ------------------- |
+
+Variables:
+
+* Tokenized asset share
+* Tokenized buffer ratio
+* Tokenized haircut
+* Collateral efficiency spread
+* Technology risk premium
+
+## Charts
+
+### Chart 1: WACC Sensitivity Tornado Chart
+
+Title:
+
+**WACC Sensitivity to Key Assumptions**
+
+Horizontal bar chart sorted by absolute impact.
+
+### Chart 2: Capital Liberated Sensitivity Tornado Chart
+
+Title:
+
+**Capital Liberated Sensitivity to Key Assumptions**
+
+Horizontal bar chart sorted by absolute impact.
+
+### Chart 3: ROE Sensitivity Tornado Chart
+
+Optional.
+
+Short note:
+
+**Sensitivity analysis changes one variable at a time to identify the strongest model drivers.**
 
 ---
 
-## Chart 7 — Sensitivity/Tornado Chart
+# Section 3.6.7 — Financial Interpretation Summary
 
-Type:
+This section should be short. No long writing.
 
-```text
-Horizontal bar chart
-```
+Create four compact cards:
 
-Shows:
+1. **Collateral Channel**
 
-```text
-Which variable has the largest effect on WACC or capital liberated
-```
+   * Shows: additional usable collateral result
+   * Short text: “Tokenization changes collateral usability through haircut assumptions.”
 
-Purpose:
+2. **Liquidity Channel**
 
-> Shows which assumptions matter most.
+   * Shows: capital liberated result
+   * Short text: “Liquidity effects are driven mainly by adoption level and buffer assumptions.”
 
----
+3. **Funding-Cost Channel**
 
-# 5. Dashboard Sections
+   * Shows: WACC change result
+   * Short text: “WACC effect depends on collateral efficiency spread versus technology risk premium.”
 
-Your Streamlit dashboard should have these sections:
+4. **Institutional Risk Channel**
 
-```text
-1. Header and academic framing
-2. Apple baseline data
-3. Sidebar assumptions and scenario controls
-4. Core KPI cards
-5. Legacy vs tokenized comparison
-6. Adoption scenario analysis
-7. Stress scenario analysis
-8. Monte Carlo robustness testing
-9. Sensitivity analysis
-10. Institutional risk architecture note
-11. Interpretation and limitations
-```
+   * Short text: “Benefits depend on isolated risk architecture, custody reliability, legal enforceability, and operational trust.”
+
+Keep this section minimal.
 
 ---
 
-# 6. Exact Results You Need to Extract for Writing 3.6
+# Downloadable Outputs
 
-When your dashboard is ready, copy these results:
+Add download buttons for:
 
-## From Main Scenario
+* baseline results CSV
+* adoption effect CSV
+* stress effect CSV
+* cross-scenario matrix CSV
+* Monte Carlo summary CSV
+* sensitivity analysis CSV
 
-```text
-Tokenized collateral pool
-Legacy usable collateral
-Tokenized usable collateral
-Additional usable collateral
-Legacy liquidity buffer
-Tokenized liquidity buffer
-Capital liberated
-Legacy cost of debt
-Tokenized cost of debt
-Legacy WACC
-Tokenized WACC
-WACC change
-Legacy ROE
-Adjusted ROE
-ROE change
-```
+Use:
 
-## From Adoption Scenario
-
-```text
-Capital liberated at 10%
-Capital liberated at 25%
-Capital liberated at 40%
-WACC change at 10%
-WACC change at 25%
-WACC change at 40%
-ROE change at 10%
-ROE change at 25%
-ROE change at 40%
-```
-
-## From Stress Scenario
-
-```text
-Capital liberated under normal market
-Capital liberated under moderate stress
-Capital liberated under severe stress
-Capital liberated under 2008-style shock
-
-WACC change under normal market
-WACC change under moderate stress
-WACC change under severe stress
-WACC change under 2008-style shock
-```
-
-## From Monte Carlo
-
-```text
-Mean capital liberated
-Median capital liberated
-5th percentile capital liberated
-95th percentile capital liberated
-
-Mean WACC change
-Median WACC change
-5th percentile WACC change
-95th percentile WACC change
-
-Mean ROE change
-Median ROE change
-5th percentile ROE change
-95th percentile ROE change
-```
-
-## From Sensitivity
-
-```text
-Most important variable affecting capital liberated
-Most important variable affecting WACC change
-Most important variable affecting ROE change
-Least important variable
-Variables that can weaken the tokenization benefit
+```python
+st.download_button()
 ```
 
 ---
 
-# 7. What Each Result Means
+# Technical Requirements
 
-## If usable collateral increases
+Use:
 
-Interpretation:
+```python
+streamlit
+pandas
+numpy
+plotly.express
+plotly.graph_objects
+```
 
-> Tokenization improves collateral efficiency.
+Do not invent new values.
 
-## If liquidity buffer falls
+Use the existing model calculations and dataframes.
 
-Interpretation:
+If required, create these helper functions:
 
-> Tokenization reduces idle liquidity requirements.
+```python
+build_baseline_results()
+build_adoption_results()
+build_stress_results()
+build_cross_scenario_matrix()
+run_monte_carlo()
+run_sensitivity_analysis()
 
-## If capital liberated is positive
-
-Interpretation:
-
-> Tokenization allows part of precautionary liquidity to become deployable.
-
-## If cost of debt decreases
-
-Interpretation:
-
-> Better collateral mobility may reduce funding spreads.
-
-## If WACC decreases
-
-Interpretation:
-
-> Tokenization may improve capital cost efficiency.
-
-## If ROE increases
-
-Interpretation:
-
-> ROE improves only if liberated capital is redeployed productively.
-
-## If Monte Carlo results remain mostly positive
-
-Interpretation:
-
-> The model is robust under uncertainty.
-
-## If sensitivity shows technology risk premium matters
-
-Interpretation:
-
-> Tokenization benefits depend heavily on risk control and institutional architecture.
+plot_liquidity_waterfall()
+plot_cost_of_debt_waterfall()
+plot_adoption_bar()
+plot_stress_bar()
+plot_heatmap()
+plot_histogram_with_markers()
+plot_boxplot()
+plot_tornado()
+plot_dumbbell()
+```
 
 ---
 
-# 8. Minimum Results for the Thesis
+# Performance Rules
 
-If you want to keep it clean, your thesis needs only:
-
-```text
-1 baseline data table
-1 assumption table
-1 legacy vs tokenized result table
-1 adoption scenario table
-1 stress scenario table
-1 Monte Carlo summary table
-1 sensitivity table
-
-Charts:
-1 WACC chart
-1 capital liberated chart
-1 stress scenario chart
-1 Monte Carlo histogram
-1 sensitivity/tornado chart
-```
-
-That is enough for a strong Chapter 3.
+* Use `@st.cache_data` for Monte Carlo.
+* Do not recompute the same scenario table multiple times.
+* Build scenario result dataframes once, then pass them to tables and charts.
+* Avoid animations.
+* Avoid 3D charts.
+* Avoid more than two charts per row.
+* Use tabs or expanders for advanced charts if the page becomes too long.
 
 ---
 
-# Final Answer
+# Visual Style
 
-Your full result package should include:
+Use a clean academic finance style:
+
+* white or light gray background
+* dark text
+* muted navy accent
+* clear labels
+* compact spacing
+* no crypto/neon aesthetic
+* no marketing language
+
+---
+
+# Final Deliverable
+
+Modify the existing Streamlit codebase so the website becomes a clean **Chapter 3 results dashboard** organized exactly as:
 
 ```text
-Core KPIs
-Legacy vs tokenized table
-Adoption scenario table
-Stress scenario table
-Monte Carlo summary table
-Sensitivity analysis table
-WACC chart
-ROE chart
-Capital liberated chart
-Stress scenario chart
-Monte Carlo histogram
-Tornado/sensitivity chart
-Interpretation box
-Limitations box
+3.6.1 Baseline Scenario Results
+3.6.2 Adoption Effect under Normal Market Conditions
+3.6.3 Stress Effect under Moderate Adoption
+3.6.4 Cross-Scenario Matrix Results
+3.6.5 Monte Carlo Robustness Results
+3.6.6 Sensitivity Analysis Results
+3.6.7 Financial Interpretation Summary
 ```
 
-This gives you everything needed to write **3.6 Results and Discussion** in a clean finance Master thesis style.
+Each subsection must contain:
+
+* one or more clean tables
+* relevant finance-style charts
+* very short notes only
+* downloadable CSV outputs where useful
+
+Do not add long academic explanations.

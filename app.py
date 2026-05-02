@@ -6,7 +6,7 @@ import streamlit as st
 
 
 st.set_page_config(
-    page_title="Applied Simulation of Tokenized Treasury Collateral",
+    page_title="Tokenized Treasury Collateral Simulation",
     layout="wide",
 )
 
@@ -46,6 +46,12 @@ ADOPTION_SCENARIOS = {
     "Conservative": 0.10,
     "Moderate": 0.25,
     "Aggressive": 0.40,
+}
+
+ADOPTION_DISPLAY = {
+    "Conservative": "Conservative 10%",
+    "Moderate": "Moderate 25%",
+    "Aggressive": "Aggressive 40%",
 }
 
 STRESS_SCENARIOS = {
@@ -413,19 +419,19 @@ def run_monte_carlo(params, simulations=5000, seed=42):
 
 def run_sensitivity_analysis(params):
     variable_ranges = {
-        "Tokenized share": ("tokenized_share", np.linspace(0.10, 0.40, 25)),
-        "Tokenized haircut": ("tokenized_haircut", np.linspace(0.02, 0.08, 25)),
-        "Technology risk premium": (
-            "technology_risk_premium",
-            np.linspace(0.001, 0.005, 25),
+        "Tokenized asset share": ("tokenized_share", np.linspace(0.10, 0.40, 25)),
+        "Tokenized buffer ratio": (
+            "tokenized_buffer_ratio",
+            np.linspace(0.10, 0.20, 25),
         ),
+        "Tokenized haircut": ("tokenized_haircut", np.linspace(0.02, 0.08, 25)),
         "Collateral efficiency spread": (
             "collateral_efficiency_spread",
             np.linspace(0.003, 0.012, 25),
         ),
-        "Tokenized buffer ratio": (
-            "tokenized_buffer_ratio",
-            np.linspace(0.10, 0.20, 25),
+        "Technology risk premium": (
+            "technology_risk_premium",
+            np.linspace(0.001, 0.005, 25),
         ),
     }
 
@@ -527,32 +533,29 @@ def style_app():
 def initialize_state():
     for key, value in DEFAULTS.items():
         st.session_state.setdefault(key, value)
-    st.session_state.setdefault("scenario_selector", "Custom")
+    st.session_state.setdefault("scenario_selector", "Normal Market")
+    st.session_state.setdefault("adoption_selector", "Moderate 25%")
     st.session_state.setdefault("capital_structure_basis", "Book Values")
 
 
 def apply_scenario_preset():
     selected = st.session_state.scenario_selector
-    if selected != "Custom":
-        for key, value in STRESS_SCENARIOS[selected].items():
-            st.session_state[key] = value
+    for key, value in STRESS_SCENARIOS[selected].items():
+        st.session_state[key] = value
+
+
+def apply_adoption_preset():
+    selected = st.session_state.adoption_selector
+    adoption_lookup = {
+        "Conservative 10%": 0.10,
+        "Moderate 25%": 0.25,
+        "Aggressive 40%": 0.40,
+    }
+    st.session_state.tokenized_share = adoption_lookup[selected]
 
 
 def sidebar_controls():
     st.sidebar.title("Simulation Controls")
-    st.sidebar.selectbox(
-        "Scenario Selector",
-        [
-            "Custom",
-            "Normal Market",
-            "Moderate Stress",
-            "Severe Stress",
-            "2008-Style Liquidity Shock",
-        ],
-        key="scenario_selector",
-        on_change=apply_scenario_preset,
-    )
-
     st.sidebar.subheader("Capital Structure Basis")
     st.sidebar.radio(
         "Capital Structure Basis",
@@ -568,7 +571,25 @@ def sidebar_controls():
             key="market_cap",
         )
 
-    st.sidebar.subheader("Adoption and Collateral Parameters")
+    st.sidebar.subheader("Base Scenario Settings")
+    st.sidebar.selectbox(
+        "Market scenario selector",
+        list(STRESS_SCENARIOS.keys()),
+        key="scenario_selector",
+        on_change=apply_scenario_preset,
+    )
+    st.sidebar.selectbox(
+        "Adoption level selector",
+        list(ADOPTION_DISPLAY.values()),
+        key="adoption_selector",
+        on_change=apply_adoption_preset,
+    )
+    st.sidebar.caption(
+        "Chapter sections use the fixed 3.6 methodology: baseline is Normal Market "
+        "+ 25%, adoption varies under Normal Market, and stress varies under 25%."
+    )
+
+    st.sidebar.subheader("Model Parameters")
     st.sidebar.slider(
         "Tokenized share of marketable securities",
         0.10,
@@ -690,13 +711,11 @@ def render_kpi(label, value, help_text=""):
 
 
 def render_header():
-    st.title("Applied Simulation of Tokenized Treasury Collateral")
-    st.caption("A real-company counterfactual model using Apple Inc. 2025 financial data")
+    st.title("Tokenized Treasury Collateral Simulation")
+    st.caption("Tables and charts for Chapter 3 results")
     note(
-        "This dashboard does not claim that Apple currently uses RWA tokenization. "
-        "Apple's financial data are used as a real-company baseline to simulate how "
-        "tokenized collateral infrastructure could affect institutional liquidity and "
-        "capital efficiency."
+        "Counterfactual model using Apple Inc. 2025 financial data. Apple is used "
+        "only as a real-company baseline and is not assumed to use RWA tokenization."
     )
 
 
@@ -998,7 +1017,7 @@ def plot_liquidity_waterfall(result):
     fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
     return apply_chart_style(
         fig,
-        "Liquidity Buffer Bridge: From Legacy Reserve to Tokenized Reserve",
+        "Liquidity Buffer Bridge: Legacy to Tokenized",
         y_title="USD billions",
     )
 
@@ -1032,7 +1051,7 @@ def plot_cost_of_debt_waterfall(result, params):
     fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
     return apply_chart_style(
         fig,
-        "Cost of Debt Bridge: Efficiency Gain vs. Technology Risk",
+        "Cost of Debt Bridge: Efficiency Gain vs Technology Risk",
         y_title="Percent",
     )
 
@@ -1043,7 +1062,12 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
     pivot = plot_df.pivot(
         index="Scenario", columns="Adoption Label", values="Plot Value"
     ).loc[list(STRESS_SCENARIOS.keys())]
-    pivot = pivot[[format_percent(value) for value in ADOPTION_SCENARIOS.values()]]
+    ordered_columns = [format_percent(value) for value in ADOPTION_SCENARIOS.values()]
+    if not set(ordered_columns).issubset(pivot.columns):
+        ordered_columns = [
+            f"{value:.0%} Adoption" for value in ADOPTION_SCENARIOS.values()
+        ]
+    pivot = pivot[[col for col in ordered_columns if col in pivot.columns]]
     cell_unit = "pp" if show_as_pp else "currency"
     text = (
         pivot.map(lambda value: format_chart_label(value, cell_unit))
@@ -1432,6 +1456,677 @@ def style_matrix(pivot, formatter, favorable="high"):
 
     styler = pivot.style.format(formatter)
     return styler.map(cell_style) if hasattr(styler, "map") else styler.applymap(cell_style)
+
+
+def download_csv(label, df, filename):
+    st.download_button(
+        label,
+        df.to_csv(index=False).encode("utf-8"),
+        file_name=filename,
+        mime="text/csv",
+    )
+
+
+def fixed_methodology_params(params, market_scenario="Normal Market", adoption=0.25):
+    return {
+        **params,
+        **STRESS_SCENARIOS[market_scenario],
+        "tokenized_share": adoption,
+    }
+
+
+def build_baseline_results(params):
+    baseline_params = fixed_methodology_params(params)
+    result = run_scenario(baseline_params)
+    rows = [
+        {
+            "Indicator": "Tokenized collateral pool",
+            "Legacy": "-",
+            "Tokenized": format_currency_b(result["tokenized_pool"]),
+            "Difference": "-",
+        },
+        {
+            "Indicator": "Haircut",
+            "Legacy": format_percent(baseline_params["legacy_haircut"]),
+            "Tokenized": format_percent(baseline_params["tokenized_haircut"]),
+            "Difference": format_pp(
+                baseline_params["tokenized_haircut"]
+                - baseline_params["legacy_haircut"]
+            ),
+        },
+        {
+            "Indicator": "Usable collateral",
+            "Legacy": format_currency_b(result["legacy_usable_collateral"]),
+            "Tokenized": format_currency_b(result["tokenized_usable_collateral"]),
+            "Difference": format_currency_b(result["usable_collateral_difference"]),
+        },
+        {
+            "Indicator": "Liquidity buffer",
+            "Legacy": format_currency_b(result["legacy_buffer"]),
+            "Tokenized": format_currency_b(result["tokenized_buffer"]),
+            "Difference": format_currency_b(
+                result["tokenized_buffer"] - result["legacy_buffer"]
+            ),
+        },
+        {
+            "Indicator": "Capital liberated",
+            "Legacy": "-",
+            "Tokenized": "-",
+            "Difference": format_currency_b(result["capital_liberated"]),
+        },
+        {
+            "Indicator": "Cost of debt",
+            "Legacy": format_percent(result["legacy_kd"]),
+            "Tokenized": format_percent(result["tokenized_kd"]),
+            "Difference": format_pp(result["tokenized_kd"] - result["legacy_kd"]),
+        },
+        {
+            "Indicator": "WACC",
+            "Legacy": format_percent(result["legacy_wacc"]),
+            "Tokenized": format_percent(result["tokenized_wacc"]),
+            "Difference": format_pp(result["wacc_change"]),
+        },
+        {
+            "Indicator": "ROE",
+            "Legacy": format_percent(result["legacy_roe"]),
+            "Tokenized": format_percent(result["adjusted_roe"]),
+            "Difference": format_pp(result["roe_change"]),
+        },
+        {
+            "Indicator": "Liquidity efficiency ratio",
+            "Legacy": f"{result['legacy_liquidity_efficiency']:.2f}x",
+            "Tokenized": f"{result['tokenized_liquidity_efficiency']:.2f}x",
+            "Difference": f"{result['liquidity_efficiency_change']:.2f}x",
+        },
+    ]
+    return result, baseline_params, pd.DataFrame(rows)
+
+
+def build_adoption_results(params):
+    rows = []
+    for name, share in ADOPTION_SCENARIOS.items():
+        result = run_scenario(fixed_methodology_params(params, adoption=share))
+        rows.append(
+            {
+                "Adoption Level": ADOPTION_DISPLAY[name],
+                "Tokenized Share": share,
+                "Tokenized Pool": result["tokenized_pool"],
+                "Additional Usable Collateral": result[
+                    "usable_collateral_difference"
+                ],
+                "Capital Liberated": result["capital_liberated"],
+                "WACC Change": result["wacc_change"],
+                "ROE Change": result["roe_change"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_stress_results(params):
+    rows = []
+    for market_scenario in STRESS_SCENARIOS:
+        result = run_scenario(
+            fixed_methodology_params(params, market_scenario=market_scenario)
+        )
+        rows.append(
+            {
+                "Market Scenario": market_scenario,
+                "Additional Usable Collateral": result[
+                    "usable_collateral_difference"
+                ],
+                "Capital Liberated": result["capital_liberated"],
+                "Tokenized Cost of Debt": result["tokenized_kd"],
+                "WACC Change": result["wacc_change"],
+                "ROE Change": result["roe_change"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_cross_scenario_matrix(params):
+    rows = []
+    for market_scenario in STRESS_SCENARIOS:
+        for adoption_name, share in ADOPTION_SCENARIOS.items():
+            result = run_scenario(
+                fixed_methodology_params(
+                    params, market_scenario=market_scenario, adoption=share
+                )
+            )
+            rows.append(
+                {
+                    "Market Scenario": market_scenario,
+                    "Adoption Level": f"{share:.0%} Adoption",
+                    "Adoption": share,
+                    "Capital Liberated": result["capital_liberated"],
+                    "Additional Usable Collateral": result[
+                        "usable_collateral_difference"
+                    ],
+                    "WACC Change": result["wacc_change"],
+                    "ROE Change": result["roe_change"],
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def format_adoption_table(df):
+    formatted = df.copy()
+    formatted["Tokenized Share"] = formatted["Tokenized Share"].map(format_percent)
+    for col in [
+        "Tokenized Pool",
+        "Additional Usable Collateral",
+        "Capital Liberated",
+    ]:
+        formatted[col] = formatted[col].map(format_currency_b)
+    for col in ["WACC Change", "ROE Change"]:
+        formatted[col] = formatted[col].map(format_pp)
+    return formatted
+
+
+def format_stress_table(df):
+    formatted = df.copy()
+    for col in ["Additional Usable Collateral", "Capital Liberated"]:
+        formatted[col] = formatted[col].map(format_currency_b)
+    formatted["Tokenized Cost of Debt"] = formatted["Tokenized Cost of Debt"].map(
+        format_percent
+    )
+    for col in ["WACC Change", "ROE Change"]:
+        formatted[col] = formatted[col].map(format_pp)
+    return formatted
+
+
+def build_monte_carlo_summary(mc_df):
+    metrics = [
+        ("Capital liberated", "Capital Liberated", format_currency_b),
+        (
+            "Additional usable collateral",
+            "Additional Usable Collateral",
+            format_currency_b,
+        ),
+        ("Tokenized WACC", "Tokenized WACC", format_percent),
+        ("WACC change", "WACC Change", format_pp),
+        ("Adjusted ROE", "Adjusted ROE", format_percent),
+        ("ROE change", "ROE Change", format_pp),
+    ]
+    rows = []
+    for label, column, formatter in metrics:
+        series = mc_df[column]
+        rows.append(
+            {
+                "Output": label,
+                "Mean": formatter(series.mean()),
+                "Median": formatter(series.median()),
+                "Std. Dev.": formatter(series.std()),
+                "Min": formatter(series.min()),
+                "Max": formatter(series.max()),
+                "5th Percentile": formatter(series.quantile(0.05)),
+                "95th Percentile": formatter(series.quantile(0.95)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_sensitivity_table(params):
+    df = run_sensitivity_analysis(params)
+    interpretation = {
+        "Tokenized asset share": "Adoption intensity driver",
+        "Tokenized buffer ratio": "Liquidity buffer driver",
+        "Tokenized haircut": "Collateral usability driver",
+        "Collateral efficiency spread": "Funding benefit driver",
+        "Technology risk premium": "Risk premium driver",
+    }
+    rows = []
+    for _, row in df.iterrows():
+        rows.append(
+            {
+                "Variable Tested": row["Variable"],
+                "Impact on Capital Liberated": format_currency_b(
+                    row["Capital Liberated Range"]
+                ),
+                "Impact on WACC Change": format_pp(row["WACC Change Range"]),
+                "Impact on ROE Change": format_pp(row["ROE Change Range"]),
+                "Main Interpretation": interpretation.get(row["Variable"], ""),
+            }
+        )
+    return df, pd.DataFrame(rows)
+
+
+def matrix_table(df, value_col):
+    pivot = df.pivot(
+        index="Market Scenario", columns="Adoption Level", values=value_col
+    ).loc[list(STRESS_SCENARIOS.keys())]
+    return pivot[[f"{share:.0%} Adoption" for share in ADOPTION_SCENARIOS.values()]]
+
+
+def plot_adoption_bar(df, y_col, title, y_title, unit):
+    plot_df = df.copy()
+    multiplier = 100 if unit in ["percent", "pp"] else 1
+    plot_df["Plot Value"] = plot_df[y_col] * multiplier
+    plot_df["Label"] = plot_df["Plot Value"].map(
+        lambda value: format_chart_label(value, unit)
+    )
+    fig = px.bar(
+        plot_df,
+        x="Adoption Level",
+        y="Plot Value",
+        text="Label",
+        color="Adoption Level",
+        color_discrete_sequence=[ACCENT_LIGHT, ACCENT, POSITIVE],
+    )
+    fig.update_traces(textposition="outside", textfont=dict(color=TEXT, size=11))
+    fig.update_layout(showlegend=False)
+    return apply_chart_style(fig, title, x_title="Adoption level", y_title=y_title)
+
+
+def plot_stress_bar(df, y_col, title, y_title, unit, diverging=False):
+    plot_df = df.copy()
+    multiplier = 100 if unit in ["percent", "pp"] else 1
+    plot_df["Plot Value"] = plot_df[y_col] * multiplier
+    plot_df["Label"] = plot_df["Plot Value"].map(
+        lambda value: format_chart_label(value, unit)
+    )
+    color = "Plot Value" if diverging else "Market Scenario"
+    fig = px.bar(
+        plot_df,
+        x="Market Scenario",
+        y="Plot Value",
+        text="Label",
+        color=color,
+        color_discrete_sequence=[ACCENT_LIGHT, ACCENT, POSITIVE, GOLD],
+        color_continuous_scale=DIVERGING_SCALE if diverging else None,
+        color_continuous_midpoint=0 if diverging else None,
+    )
+    fig.update_traces(textposition="outside", textfont=dict(color=TEXT, size=11))
+    fig.update_layout(showlegend=False, coloraxis_showscale=False)
+    if diverging:
+        fig.add_hline(y=0, line_width=1, line_color=TEXT)
+    return apply_chart_style(fig, title, x_title="Market scenario", y_title=y_title)
+
+
+def plot_stress_line(df, y_col, title, y_title, unit):
+    plot_df = df.copy()
+    multiplier = 100 if unit in ["percent", "pp"] else 1
+    plot_df["Plot Value"] = plot_df[y_col] * multiplier
+    plot_df["Label"] = plot_df["Plot Value"].map(
+        lambda value: format_chart_label(value, unit)
+    )
+    fig = px.line(
+        plot_df,
+        x="Market Scenario",
+        y="Plot Value",
+        markers=True,
+        text="Label",
+        color_discrete_sequence=[ACCENT],
+    )
+    fig.update_traces(textposition="top center", textfont=dict(color=TEXT, size=11))
+    return apply_chart_style(fig, title, x_title="Market scenario", y_title=y_title)
+
+
+def plot_matrix_heatmap(matrix_df, value_col, title, show_as_pp=False):
+    plot_df = matrix_df.rename(
+        columns={"Market Scenario": "Scenario", "Adoption Level": "Adoption Label"}
+    )
+    return plot_heatmap(
+        plot_df,
+        value_col,
+        title,
+        "Percentage points" if show_as_pp else "USD billions",
+        show_as_pp=show_as_pp,
+        diverging=show_as_pp,
+    )
+
+
+def render_chapter_baseline(result, baseline_params, baseline_table):
+    st.header("3.6.1 Baseline Scenario Results")
+    note("Baseline case: Normal Market with 25% tokenization adoption.")
+    st.subheader("Baseline Legacy vs Tokenized Results")
+    st.dataframe(baseline_table, use_container_width=True, hide_index=True)
+    download_csv("Download baseline results CSV", baseline_table, "baseline_results.csv")
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(plot_liquidity_waterfall(result), use_container_width=True)
+    with cols[1]:
+        st.plotly_chart(
+            plot_cost_of_debt_waterfall(result, baseline_params),
+            use_container_width=True,
+        )
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_dumbbell(
+                build_amount_dumbbell_data(result),
+                "Legacy vs Tokenized Baseline Comparison: Amount Metrics",
+                "USD billions",
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_dumbbell(
+                build_rate_dumbbell_data(result),
+                "Legacy vs Tokenized Baseline Comparison: Percentage Metrics",
+                "Percent",
+            ),
+            use_container_width=True,
+        )
+
+
+def render_chapter_adoption(adoption_df):
+    st.header("3.6.2 Adoption Effect under Normal Market Conditions")
+    note(
+        "This section isolates the adoption effect by keeping market conditions fixed "
+        "at Normal Market."
+    )
+    st.dataframe(format_adoption_table(adoption_df), use_container_width=True, hide_index=True)
+    download_csv("Download adoption effect CSV", adoption_df, "adoption_effect.csv")
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_adoption_bar(
+                adoption_df,
+                "Capital Liberated",
+                "Capital Liberated by Adoption Level",
+                "USD billions",
+                "currency",
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_adoption_bar(
+                adoption_df,
+                "Additional Usable Collateral",
+                "Additional Usable Collateral by Adoption Level",
+                "USD billions",
+                "currency",
+            ),
+            use_container_width=True,
+        )
+    st.plotly_chart(
+        plot_adoption_bar(
+            adoption_df,
+            "ROE Change",
+            "ROE Change by Adoption Level",
+            "Percentage points",
+            "pp",
+        ),
+        use_container_width=True,
+    )
+
+
+def render_chapter_stress(stress_df):
+    st.header("3.6.3 Stress Effect under Moderate Adoption")
+    note("This section isolates the stress effect by keeping adoption fixed at 25%.")
+    st.warning(
+        "The 2008-style scenario is a stress-test reference, not a historical "
+        "tokenization case."
+    )
+    st.dataframe(format_stress_table(stress_df), use_container_width=True, hide_index=True)
+    download_csv("Download stress effect CSV", stress_df, "stress_effect.csv")
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_stress_bar(
+                stress_df,
+                "Capital Liberated",
+                "Capital Liberated under Stress Scenarios",
+                "USD billions",
+                "currency",
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_stress_bar(
+                stress_df,
+                "WACC Change",
+                "WACC Change under Stress Scenarios",
+                "Percentage points",
+                "pp",
+                diverging=True,
+            ),
+            use_container_width=True,
+        )
+    st.plotly_chart(
+        plot_stress_line(
+            stress_df,
+            "Tokenized Cost of Debt",
+            "Tokenized Cost of Debt under Stress Scenarios",
+            "Percent",
+            "percent",
+        ),
+        use_container_width=True,
+    )
+
+
+def render_chapter_matrix(matrix_df):
+    st.header("3.6.4 Cross-Scenario Matrix Results")
+    note(
+        "The matrix summarizes all 12 scenario outcomes generated by combining four "
+        "market conditions with three adoption levels."
+    )
+    download_csv(
+        "Download cross-scenario matrix CSV",
+        matrix_df,
+        "cross_scenario_matrix.csv",
+    )
+
+    table_cols = st.columns(2)
+    with table_cols[0]:
+        st.caption("Capital Liberated Matrix")
+        st.dataframe(
+            style_matrix(
+                matrix_table(matrix_df, "Capital Liberated"),
+                lambda value: format_currency_b(value),
+            ),
+            use_container_width=True,
+        )
+        st.caption("Additional Usable Collateral Matrix")
+        st.dataframe(
+            style_matrix(
+                matrix_table(matrix_df, "Additional Usable Collateral"),
+                lambda value: format_currency_b(value),
+            ),
+            use_container_width=True,
+        )
+    with table_cols[1]:
+        st.caption("WACC Change Matrix")
+        st.dataframe(
+            style_matrix(
+                matrix_table(matrix_df, "WACC Change"),
+                lambda value: format_pp(value),
+                favorable="negative",
+            ),
+            use_container_width=True,
+        )
+        st.caption("ROE Change Matrix")
+        st.dataframe(
+            style_matrix(
+                matrix_table(matrix_df, "ROE Change"),
+                lambda value: format_pp(value),
+            ),
+            use_container_width=True,
+        )
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_matrix_heatmap(
+                matrix_df,
+                "Capital Liberated",
+                "Capital Liberated Across Scenario Matrix",
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_matrix_heatmap(
+                matrix_df,
+                "WACC Change",
+                "WACC Change Across Scenario Matrix",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+    st.plotly_chart(
+        plot_matrix_heatmap(
+            matrix_df,
+            "ROE Change",
+            "ROE Change Across Scenario Matrix",
+            show_as_pp=True,
+        ),
+        use_container_width=True,
+    )
+
+
+def render_chapter_monte_carlo(mc_df):
+    st.header("3.6.5 Monte Carlo Robustness Results")
+    note(
+        "Monte Carlo results show how the outputs behave when key assumptions vary "
+        "within predefined ranges."
+    )
+    summary_df = build_monte_carlo_summary(mc_df)
+    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    download_csv(
+        "Download Monte Carlo summary CSV",
+        summary_df,
+        "monte_carlo_summary.csv",
+    )
+
+    tabs = st.tabs(["Distributions", "Box Plots"])
+    with tabs[0]:
+        cols = st.columns(2)
+        with cols[0]:
+            st.plotly_chart(
+                plot_histogram_with_markers(
+                    mc_df,
+                    "Capital Liberated",
+                    "Monte Carlo Distribution of Capital Liberated",
+                    "Capital liberated, USD billions",
+                ),
+                use_container_width=True,
+            )
+        with cols[1]:
+            st.plotly_chart(
+                plot_histogram_with_markers(
+                    mc_df,
+                    "WACC Change",
+                    "Monte Carlo Distribution of WACC Change",
+                    "WACC change, percentage points",
+                    show_as_pp=True,
+                ),
+                use_container_width=True,
+            )
+        st.plotly_chart(
+            plot_histogram_with_markers(
+                mc_df,
+                "ROE Change",
+                "Monte Carlo Distribution of ROE Change",
+                "ROE change, percentage points",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+    with tabs[1]:
+        cols = st.columns(2)
+        with cols[0]:
+            st.plotly_chart(
+                plot_boxplot(
+                    mc_df,
+                    ["Capital Liberated", "Additional Usable Collateral"],
+                    "Monte Carlo Box Plot: USD Outcomes",
+                    "USD billions",
+                ),
+                use_container_width=True,
+            )
+        with cols[1]:
+            st.plotly_chart(
+                plot_boxplot(
+                    mc_df,
+                    ["WACC Change", "ROE Change"],
+                    "Monte Carlo Box Plot: Percentage-Point Outcomes",
+                    "Percentage points",
+                    show_as_pp=True,
+                ),
+                use_container_width=True,
+            )
+
+
+def render_chapter_sensitivity(params):
+    st.header("3.6.6 Sensitivity Analysis Results")
+    note(
+        "Sensitivity analysis changes one variable at a time to identify the "
+        "strongest model drivers."
+    )
+    raw_df, table_df = build_sensitivity_table(params)
+    st.dataframe(table_df, use_container_width=True, hide_index=True)
+    download_csv("Download sensitivity analysis CSV", table_df, "sensitivity_analysis.csv")
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.plotly_chart(
+            plot_tornado(
+                raw_df,
+                "WACC Change Range",
+                "WACC Sensitivity to Key Assumptions",
+                "Percentage-point range",
+                show_as_pp=True,
+            ),
+            use_container_width=True,
+        )
+    with cols[1]:
+        st.plotly_chart(
+            plot_tornado(
+                raw_df,
+                "Capital Liberated Range",
+                "Capital Liberated Sensitivity to Key Assumptions",
+                "USD billions",
+            ),
+            use_container_width=True,
+        )
+    st.plotly_chart(
+        plot_tornado(
+            raw_df,
+            "ROE Change Range",
+            "ROE Sensitivity to Key Assumptions",
+            "Percentage-point range",
+            show_as_pp=True,
+        ),
+        use_container_width=True,
+    )
+
+
+def render_interpretation_summary(result):
+    st.header("3.6.7 Financial Interpretation Summary")
+    cards = [
+        (
+            "Collateral Channel",
+            format_currency_b(result["usable_collateral_difference"]),
+            "Tokenization changes collateral usability through haircut assumptions.",
+        ),
+        (
+            "Liquidity Channel",
+            format_currency_b(result["capital_liberated"]),
+            "Liquidity effects are driven mainly by adoption level and buffer assumptions.",
+        ),
+        (
+            "Funding-Cost Channel",
+            format_pp(result["wacc_change"]),
+            "WACC effect depends on collateral efficiency spread versus technology risk premium.",
+        ),
+        (
+            "Institutional Risk Channel",
+            "",
+            "Benefits depend on isolated risk architecture, custody reliability, legal enforceability, and operational trust.",
+        ),
+    ]
+    cols = st.columns(4)
+    for col, (title, value, helper) in zip(cols, cards):
+        with col:
+            render_kpi(title, value, helper)
 
 
 def render_adoption_analysis(params):
@@ -1831,26 +2526,26 @@ def main():
     style_app()
     initialize_state()
     params = sidebar_controls()
-    result = run_scenario(params)
+    baseline_result, baseline_params, baseline_table = build_baseline_results(params)
+    adoption_df = build_adoption_results(params)
+    stress_df = build_stress_results(params)
+    matrix_df = build_cross_scenario_matrix(params)
+    mc_df = run_monte_carlo(baseline_params)
 
     render_header()
-    render_core_kpis(result)
+    render_chapter_baseline(baseline_result, baseline_params, baseline_table)
     st.divider()
-    render_baseline_data()
+    render_chapter_adoption(adoption_df)
     st.divider()
-    render_comparison_table(result, params)
+    render_chapter_stress(stress_df)
     st.divider()
-    render_adoption_analysis(params)
+    render_chapter_matrix(matrix_df)
     st.divider()
-    render_stress_analysis(params)
+    render_chapter_monte_carlo(mc_df)
     st.divider()
-    render_monte_carlo(params)
+    render_chapter_sensitivity(baseline_params)
     st.divider()
-    render_sensitivity(params)
-    st.divider()
-    render_risk_architecture()
-    st.divider()
-    render_interpretation_and_limitations(result)
+    render_interpretation_summary(baseline_result)
 
 
 if __name__ == "__main__":
