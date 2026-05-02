@@ -952,14 +952,14 @@ def apply_chart_style(fig, title, x_title=None, y_title=None, height=430):
         title=title,
         template=PLOTLY_TEMPLATE,
         height=height,
-        margin=dict(l=30, r=30, t=72, b=40),
-        font=dict(color=TEXT, size=13),
+        margin=dict(l=56, r=48, t=88, b=76),
+        font=dict(color=TEXT, size=14),
         title_font=dict(size=18, color=TEXT),
         title_x=0.02,
         legend_title_text="",
         legend=dict(
-            font=dict(color=TEXT, size=12),
-            bgcolor="rgba(255,255,255,0.92)",
+            font=dict(color=TEXT, size=13),
+            bgcolor="rgba(255,255,255,0.96)",
             bordercolor=GRID,
             borderwidth=1,
         ),
@@ -968,19 +968,27 @@ def apply_chart_style(fig, title, x_title=None, y_title=None, height=430):
     )
     fig.update_xaxes(
         title=x_title,
-        title_font=dict(color=MUTED, size=13),
-        tickfont=dict(color=TEXT, size=12),
+        title_font=dict(color=TEXT, size=14),
+        tickfont=dict(color=TEXT, size=13),
         gridcolor="#e5e9f0",
         linecolor=GRID,
         zerolinecolor=GRID,
+        automargin=True,
     )
     fig.update_yaxes(
         title=y_title,
-        title_font=dict(color=MUTED, size=13),
-        tickfont=dict(color=TEXT, size=12),
+        title_font=dict(color=TEXT, size=14),
+        tickfont=dict(color=TEXT, size=13),
         gridcolor="#e5e9f0",
         linecolor=GRID,
         zerolinecolor=GRID,
+        automargin=True,
+    )
+    fig.update_annotations(
+        font=dict(color=TEXT, size=12),
+        bgcolor="rgba(255,255,255,0.94)",
+        bordercolor=GRID,
+        borderwidth=1,
     )
     return fig
 
@@ -1016,7 +1024,7 @@ def plot_liquidity_waterfall(result):
             hovertemplate="%{x}<br>%{y:,.2f} USD billions<extra></extra>",
         )
     )
-    fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
+    fig.update_traces(textfont=dict(color=TEXT, size=13), cliponaxis=False)
     return apply_chart_style(
         fig,
         "Liquidity Buffer Bridge: Legacy to Tokenized",
@@ -1050,7 +1058,7 @@ def plot_cost_of_debt_waterfall(result, params):
             hovertemplate="%{x}<br>%{y:.2f}%<extra></extra>",
         )
     )
-    fig.update_traces(textfont=dict(color=TEXT, size=12), cliponaxis=False)
+    fig.update_traces(textfont=dict(color=TEXT, size=13), cliponaxis=False)
     return apply_chart_style(
         fig,
         "Cost of Debt Bridge: Efficiency Gain vs Technology Risk",
@@ -1094,7 +1102,7 @@ def plot_heatmap(df, value_col, title, value_label, show_as_pp=False, diverging=
         "colorbar": {"title": value_label},
         "text": text.values,
         "texttemplate": "%{text}",
-        "textfont": {"color": TEXT, "size": 12},
+        "textfont": {"color": TEXT, "size": 13},
         "hovertemplate": (
             "Scenario: %{y}<br>"
             "Adoption ratio: %{x}<br>"
@@ -1140,10 +1148,10 @@ def plot_grouped_bar(df):
     )
     fig.update_traces(
         textposition="outside",
-        textfont=dict(color=TEXT, size=11),
+        textfont=dict(color=TEXT, size=13),
         cliponaxis=False,
     )
-    fig.update_layout(uniformtext_minsize=10, uniformtext_mode="hide")
+    fig.update_layout(uniformtext_minsize=12, uniformtext_mode="show")
     return apply_chart_style(
         fig,
         "Additional Usable Collateral by Scenario and Adoption Level",
@@ -1171,20 +1179,24 @@ def plot_dumbbell(df, title, x_title):
             y=row["Metric"],
             text=format_chart_label(row["Legacy"], unit),
             showarrow=False,
-            xshift=-34,
+            xshift=-42,
             yshift=16,
-            font=dict(color=MUTED, size=11),
-            bgcolor="rgba(255,255,255,0.85)",
+            font=dict(color=TEXT, size=12),
+            bgcolor="rgba(255,255,255,0.96)",
+            bordercolor=GRID,
+            borderwidth=1,
         )
         fig.add_annotation(
             x=row["Tokenized"],
             y=row["Metric"],
             text=format_chart_label(row["Tokenized"], unit),
             showarrow=False,
-            xshift=34,
+            xshift=42,
             yshift=16,
-            font=dict(color=ACCENT, size=11),
-            bgcolor="rgba(255,255,255,0.85)",
+            font=dict(color=TEXT, size=12),
+            bgcolor="rgba(255,255,255,0.96)",
+            bordercolor=GRID,
+            borderwidth=1,
         )
     fig.add_trace(
         go.Scatter(
@@ -1232,7 +1244,7 @@ def plot_stress_wacc_bar(stress_df):
     )
     fig.update_traces(
         textposition="outside",
-        textfont=dict(color=TEXT, size=11),
+        textfont=dict(color=TEXT, size=13),
         cliponaxis=False,
     )
     fig.add_hline(y=0, line_width=1, line_color=TEXT)
@@ -1290,10 +1302,10 @@ def plot_histogram_with_markers(df, column, title, x_title, show_as_pp=False):
         align="left",
         xanchor="right",
         yanchor="top",
-        bgcolor="rgba(255,255,255,0.90)",
+        bgcolor="rgba(255,255,255,0.96)",
         bordercolor=GRID,
         borderwidth=1,
-        font=dict(color=TEXT, size=11),
+        font=dict(color=TEXT, size=12),
     )
     return apply_chart_style(fig, title, x_title=x_title, y_title="Frequency")
 
@@ -1318,8 +1330,10 @@ def plot_boxplot(df, columns, title, y_title, show_as_pp=False):
             text=f"Median {format_chart_label(median_value, unit)}",
             showarrow=False,
             yshift=16,
-            font=dict(color=TEXT, size=11),
-            bgcolor="rgba(255,255,255,0.88)",
+            font=dict(color=TEXT, size=12),
+            bgcolor="rgba(255,255,255,0.96)",
+            bordercolor=GRID,
+            borderwidth=1,
         )
     return apply_chart_style(fig, title, y_title=y_title)
 
@@ -1340,7 +1354,7 @@ def plot_tornado(df, value_col, title, x_title, show_as_pp=False):
     )
     fig.update_traces(
         textposition="outside",
-        textfont=dict(color=TEXT, size=11),
+        textfont=dict(color=TEXT, size=13),
         cliponaxis=False,
     )
     return apply_chart_style(fig, title, x_title=x_title, y_title="")
@@ -1747,7 +1761,11 @@ def plot_adoption_bar(df, y_col, title, y_title, unit):
         color="Adoption Level",
         color_discrete_sequence=[ACCENT_LIGHT, ACCENT, POSITIVE],
     )
-    fig.update_traces(textposition="outside", textfont=dict(color=TEXT, size=11))
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=13),
+        cliponaxis=False,
+    )
     fig.update_layout(showlegend=False)
     return apply_chart_style(fig, title, x_title="Adoption level", y_title=y_title)
 
@@ -1770,7 +1788,11 @@ def plot_stress_bar(df, y_col, title, y_title, unit, diverging=False):
         color_continuous_scale=DIVERGING_SCALE if diverging else None,
         color_continuous_midpoint=0 if diverging else None,
     )
-    fig.update_traces(textposition="outside", textfont=dict(color=TEXT, size=11))
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(color=TEXT, size=13),
+        cliponaxis=False,
+    )
     fig.update_layout(showlegend=False, coloraxis_showscale=False)
     if diverging:
         fig.add_hline(y=0, line_width=1, line_color=TEXT)
@@ -1792,7 +1814,11 @@ def plot_stress_line(df, y_col, title, y_title, unit):
         text="Label",
         color_discrete_sequence=[ACCENT],
     )
-    fig.update_traces(textposition="top center", textfont=dict(color=TEXT, size=11))
+    fig.update_traces(
+        textposition="top center",
+        textfont=dict(color=TEXT, size=13),
+        cliponaxis=False,
+    )
     return apply_chart_style(fig, title, x_title="Market scenario", y_title=y_title)
 
 
@@ -2314,7 +2340,7 @@ def render_stress_analysis(params):
         )
         buffer_fig.update_traces(
             textposition="outside",
-            textfont=dict(color=TEXT, size=11),
+            textfont=dict(color=TEXT, size=13),
             cliponaxis=False,
         )
         st.plotly_chart(
@@ -2348,7 +2374,7 @@ def render_stress_analysis(params):
     )
     stress_fig.update_traces(
         textposition="outside",
-        textfont=dict(color=TEXT, size=11),
+        textfont=dict(color=TEXT, size=13),
         cliponaxis=False,
     )
     st.plotly_chart(
